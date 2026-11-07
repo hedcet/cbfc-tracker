@@ -30,12 +30,12 @@ Create a small **test subreddit** you moderate (under 200 members), e.g. `r/cbfc
 
 ## Everyday commands
 
-| Command | What it does |
-|---|---|
-| `npm test` | Type check, lint, unit tests, build |
-| `npm run format` | Fix formatting |
+| Command            | What it does                                                            |
+| ------------------ | ----------------------------------------------------------------------- |
+| `npm test`         | Type check, lint, unit tests, build                                     |
+| `npm run format`   | Fix formatting                                                          |
 | `npm run playtest` | Install on the test subreddit and stream logs; reinstalls on every save |
-| `npm run upload` | Clean build and upload a new private version to the App Directory |
+| `npm run upload`   | Clean build and upload a new private version to the App Directory       |
 
 ## Layout
 
@@ -49,12 +49,12 @@ src/shared/api.ts    endpoints and request/response types shared by both
 
 ## Status
 
-| Phase | Work | Status |
-|---|---|---|
-| 0 | Tracker post format (Title, Language, Category, Length, Ref, When) | done |
-| – | App skeleton: tall post, mod menu "Create CBFC Tracker post", health check, tests | done |
-| 1 | Ingest the tracker post into Redis + one-time import | next |
-| 2 | Search tab + certificate sheet; post title form | |
-| 3 | Watchlist | |
-| 4 | Daily post + mod settings | |
-| 5 | Install on r/kerala_boxoffice | |
+| Phase | Work                                                                              | Status |
+| ----- | --------------------------------------------------------------------------------- | ------ |
+| 0     | Tracker post format (Title, Language, Category, Length, Ref, When)                | done   |
+| –     | App skeleton: tall post, mod menu "Create CBFC Tracker post", health check, tests | done   |
+| 1     | Ingest the tracker post into Redis + one-time import                              | next   |
+| 2     | Search tab + certificate sheet; post title form                                   |        |
+| 3     | Watchlist                                                                         |        |
+| 4     | Daily post + mod settings                                                         |        |
+| 5     | Install on r/kerala_boxoffice                                                     |        |
