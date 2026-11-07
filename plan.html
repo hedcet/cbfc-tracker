@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CBFC Tracker – Reddit App Plan</title>
+<style>
+  body { margin:0; font:15px/1.6 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; color:#1c1c1c; background:#f6f7f8; }
+  main { max-width:960px; margin:0 auto; padding:28px 22px 60px; }
+  h1 { font-size:26px; margin:0 0 4px; }
+  h2 { font-size:19px; margin:36px 0 10px; padding-bottom:6px; border-bottom:2px solid #ff4500; }
+  h3 { font-size:15px; margin:20px 0 6px; }
+  .sub { color:#5c6c74; margin:0 0 18px; }
+  table { width:100%; border-collapse:collapse; background:#fff; font-size:14px; margin:8px 0; }
+  th,td { text-align:left; padding:8px 10px; border:1px solid #e3e5e8; vertical-align:top; }
+  th { background:#eef1f3; }
+  code { background:#eef1f3; padding:1px 5px; border-radius:4px; font-size:13px; }
+  pre { background:#111; color:#d6f5d6; padding:14px; border-radius:8px; overflow:auto; font-size:12.5px; line-height:1.45; }
+  .box { background:#fff; border:1px solid #e3e5e8; border-radius:8px; padding:12px 16px; margin:10px 0; }
+  .ok { border-left:4px solid #0a8a3a; } .warn { border-left:4px solid #e0a000; } .bad { border-left:4px solid #c62828; }
+  .tag { display:inline-block; font-size:12px; font-weight:600; padding:1px 8px; border-radius:8px; }
+  .t-ok { background:#e3f5e8; color:#0a6a2c; } .t-next { background:#ffe8df; color:#a33000; } .t-later { background:#eef1f3; color:#5c6c74; }
+  ul li, ol li { margin:3px 0; }
+  nav { background:#fff; border:1px solid #e3e5e8; border-radius:8px; padding:8px 12px; font-size:13px; }
+  nav a { margin-right:12px; white-space:nowrap; }
+  .fig { background:#fff; border:1px solid #e3e5e8; border-radius:8px; padding:12px; margin:10px 0; }
+  .fig svg { width:100%; height:auto; display:block; }
+  .fig figcaption { font-size:13px; color:#5c6c74; margin-top:6px; }
+  .mock { font-family:ui-monospace,Consolas,monospace; font-size:12.5px; background:#fff; border:1px solid #e3e5e8; border-radius:8px; padding:10px 14px; white-space:pre; overflow:auto; line-height:1.5; }
+</style>
+</head>
+<body>
+<main>
+<h1>CBFC Tracker → Reddit App: Plan</h1>
+<p class="sub">What the app does, the rules behind it, how it is built, and in what order. Try the screens in <a href="prototype.html">prototype.html</a>.</p>
+<nav>
+  <a href="#idea">1. Idea</a><a href="#today">2. Today</a><a href="#app">3. App</a><a href="#watch">4. Watchlist</a>
+  <a href="#search">5. Search</a><a href="#daily">6. Daily post</a><a href="#look">7. Look &amp; text</a><a href="#data">8. Data</a>
+  <a href="#build">9. Architecture</a><a href="#limits">10. Reddit limits</a><a href="#rules">11. Build rules</a><a href="#phases">12. Phases</a><a href="#open">13. Open</a>
+</nav>
+
+<!-- ============================================================ -->
+<h2 id="idea">1. The idea in one paragraph</h2>
+<div class="box ok">
+A Reddit app on <b>r/kerala_boxoffice</b> that lets people <b>search CBFC certificates</b> and <b>follow a keyword</b> (e.g. DRISHYAM) to see when matching films get certified. It never scrapes and never calls our server: <code>cbfc.js</code> keeps updating its pinned tracker post, and the app <b>reads that post</b> and keeps its own history in Reddit's Redis. A one-time import fills in the history before the app was installed.
+</div>
+
+<!-- ============================================================ -->
+<h2 id="today">2. What exists today</h2>
+<table>
+<tr><th>Part</th><th>What it does</th></tr>
+<tr><td><code>cbfc.js</code></td><td>Scrapes the CBFC e-Cinepramaan portal (Puppeteer + OCR captcha), stores certificates in Postgres, and edits the pinned tracker post with the last week's rows.</td></tr>
+<tr><td>Tracker post</td><td>Markdown table <code>| Title | Language | Category | Length | Ref | When |</code>. <b>Ref</b> = certificate number (unique). <b>When</b> = <code>YYYY-MM-DD</code> today, <code>YYYY-MM-DD Dn</code> for older days (IST). Limited to ~1 week by Reddit's 40,000-character post limit.</td></tr>
+<tr><td>Telegram + web page</td><td>Existing alerts to one Telegram chat; <code>server.js</code> + <code>cbfc.html</code> show the same table. Unchanged by this plan.</td></tr>
+</table>
+
+<!-- ============================================================ -->
+<h2 id="app">3. The app at a glance</h2>
+<p>One interactive post (title chosen by the mod when creating it), Reddit's <b>tall</b> size (~512 px), <b>no scrolling</b> inside it, two tabs:</p>
+<div class="mock">┌──────────────────────────────────────┐
+│  ☆ Watchlist        ⌕ Search         │
+│ [Film name, like KATTALAN    ] [Add] │
+│ 9 keywords · 3 you follow            │
+│ LOKAH                       [🔔|🗑]  │
+│ 2 following · yours                  │
+│ PEDDI  1 new ›                 [🔔]  │
+│ 2 following                          │
+│ …6 rows per page…                    │
+│        ‹ Prev  Page 1 of 2  Next ›   │
+└──────────────────────────────────────┘</div>
+<figure class="fig"><svg viewBox="0 0 900 230" font-family="system-ui,Segoe UI,Roboto,sans-serif"><defs><marker id="a2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#5c6c74"/></marker></defs>
+<rect x="20" y="60" width="230" height="110" rx="8" fill="#fff8f5" stroke="#ffb59a"/><text x="135.0" y="82" text-anchor="middle" font-weight="700" font-size="13" fill="#1c1c1c">Watchlist tab</text><text x="135.0" y="100" text-anchor="middle" font-size="11.5" fill="#5c6c74">add / follow keywords</text><text x="135.0" y="116" text-anchor="middle" font-size="11.5" fill="#5c6c74">N new chip</text><text x="135.0" y="132" text-anchor="middle" font-size="11.5" fill="#5c6c74">approve (mods)</text>
+<rect x="335" y="60" width="230" height="110" rx="8" fill="#fff8f5" stroke="#ffb59a"/><text x="450.0" y="82" text-anchor="middle" font-weight="700" font-size="13" fill="#1c1c1c">Search tab</text><text x="450.0" y="100" text-anchor="middle" font-size="11.5" fill="#5c6c74">1+ characters, count</text><text x="450.0" y="116" text-anchor="middle" font-size="11.5" fill="#5c6c74">one row per certificate</text><text x="450.0" y="132" text-anchor="middle" font-size="11.5" fill="#5c6c74">Watch X link</text>
+<rect x="650" y="60" width="230" height="110" rx="8" fill="#fff" stroke="#c9d1d6"/><text x="765.0" y="82" text-anchor="middle" font-weight="700" font-size="13" fill="#1c1c1c">CBFC certificate sheet</text><text x="765.0" y="100" text-anchor="middle" font-size="11.5" fill="#5c6c74">all 6 fields</text><text x="765.0" y="116" text-anchor="middle" font-size="11.5" fill="#5c6c74">close: ✕ / outside / Esc</text>
+<line x1="250" y1="92" x2="333" y2="92" stroke="#5c6c74" stroke-width="1.6" marker-end="url(#a1)"/><text x="292" y="84" text-anchor="middle" font-size="11" fill="#5c6c74">tap “2 new ›”</text>
+<line x1="335" y1="140" x2="252" y2="140" stroke="#5c6c74" stroke-width="1.6" marker-end="url(#a1)"/><text x="292" y="158" text-anchor="middle" font-size="11" fill="#5c6c74">“Watch X” / “Watch KGF”</text>
+<line x1="565" y1="115" x2="648" y2="115" stroke="#5c6c74" stroke-width="1.6" marker-end="url(#a1)"/><text x="606" y="107" text-anchor="middle" font-size="11" fill="#5c6c74">tap a row</text>
+<text x="450" y="210" text-anchor="middle" font-size="12" fill="#5c6c74">Tabs switch freely; the sheet is the only deeper level and has no further actions.</text>
+</svg><figcaption>Two tabs plus one details sheet. Nothing goes deeper.</figcaption></figure>
+<ul>
+<li><b>Watchlist</b>: follow one-word keywords; see how many new certificates matched since you followed.</li>
+<li><b>Search</b>: find certificates; tap one for its full details in a bottom sheet.</li>
+<li>The two tabs connect: tapping <b>"2 new ›"</b> opens Search with the keyword; Search offers <b>"Watch X"</b>.</li>
+<li>Only films of <b>1 hour or more</b> are used anywhere (shorter rows are ads; see section 8).</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2 id="watch">4. Watchlist</h2>
+
+<h3>4.1 Keywords</h3>
+<table>
+<tr><th>Rule</th><th>Detail</th></tr>
+<tr><td>Format</td><td>One word, <b>2–20</b> letters A–Z / numbers 0–9, stored lowercase, shown uppercase. 20 because the longest word in any title in the data is 18 (SWATHANTHRARAAKKUM).</td></tr>
+<tr><td>Matching</td><td><b>3+ letters: "contains"</b> (anywhere in the title, ignoring spaces and symbols: <code>drishyam</code> → DRISHYAM 3). <b>2 letters: whole title only</b> (<code>45</code> → a film called exactly "45"), because 2 letters are inside a quarter of all titles.</td></tr>
+<tr><td>Blocked words</td><td>Very common words (the, of, and, a, love, man, life, story, part, movie, film, …) → "Too common, try another word".</td></tr>
+<tr><td>Same word twice</td><td>Adding a word that already exists just <b>follows</b> it.</td></tr>
+<tr><td>Never closes</td><td>A keyword keeps matching future certificates (teaser, trailer, film, dubbed versions).</td></tr>
+</table>
+
+<h3>4.2 Following and the "new" count</h3>
+<ul>
+<li>Each user can follow <b>at most 3 keywords</b> (v1; can be raised). Adding a keyword also follows it. The limit is only mentioned when someone hits it: <b>"You can follow 3 for now"</b>. Mods have no limit.</li>
+<li>The green chip <b>"2 new ›"</b> counts certificates <b>first seen after the user followed</b>. Each certificate counts once (Tamil and Malayalam versions = 2). It keeps growing; unfollow + follow starts it from zero. Nothing is shown when the count is 0 (the filled bell already says "you follow this").</li>
+<li>Tapping the chip opens Search with the keyword typed in.</li>
+</ul>
+<figure class="fig"><svg viewBox="0 0 900 150" font-family="system-ui,Segoe UI,Roboto,sans-serif"><defs><marker id="a4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#5c6c74"/></marker></defs>
+<line x1="40" y1="80" x2="860" y2="80" stroke="#c9d1d6" stroke-width="2" marker-end="url(#a4)"/>
+<text x="860" y="104" text-anchor="end" font-size="11" fill="#5c6c74">time (first seen)</text>
+<g font-size="11" text-anchor="middle" fill="#5c6c74">
+<circle cx="120" cy="80" r="7" fill="#c9d1d6"/><text x="120" y="60">older cert</text><text x="120" y="108">not counted</text>
+<line x1="250" y1="40" x2="250" y2="120" stroke="#ff4500" stroke-width="2" stroke-dasharray="4 3"/><text x="250" y="34" fill="#a33000" font-weight="700">user follows</text>
+<circle cx="380" cy="80" r="7" fill="#0a8a3a"/><text x="380" y="60">teaser</text>
+<circle cx="510" cy="80" r="7" fill="#0a8a3a"/><text x="510" y="60">film · Malayalam</text>
+<circle cx="640" cy="80" r="7" fill="#0a8a3a"/><text x="640" y="60">film · Tamil</text>
+<text x="510" y="112" fill="#0a8a3a" font-weight="700">chip shows “3 new ›”</text>
+</g></svg><figcaption>Unfollow + follow moves the dashed line to "now", so the count starts again from zero.</figcaption></figure>
+
+<h3>4.3 Ownership and approval</h3>
+<ul>
+<li><b>Owner</b> = the first person who added the keyword. Nobody can delete a keyword for other people.</li>
+<li>The owner's 🗑 (and 🔔 off) means "stop following". If the owner leaves, the <b>next follower (earliest to join) becomes owner</b>. A keyword is deleted only when <b>nobody follows it</b>.</li>
+<li><b>Approval only decides whether a keyword is listed for everyone.</b> Before approval, only the people who added/follow it and mods see it, as a normal row (no special marker). New keywords from mods are approved straight away.</li>
+</ul>
+
+<figure class="fig"><svg viewBox="0 0 900 250" font-family="system-ui,Segoe UI,Roboto,sans-serif"><defs><marker id="a3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#5c6c74"/></marker></defs>
+<rect x="20" y="80" width="190" height="80" rx="8" fill="#fff" stroke="#c9d1d6"/><text x="115.0" y="102" text-anchor="middle" font-weight="700" font-size="13" fill="#1c1c1c">Added</text><text x="115.0" y="120" text-anchor="middle" font-size="11.5" fill="#5c6c74">owner = first adder</text><text x="115.0" y="136" text-anchor="middle" font-size="11.5" fill="#5c6c74">follows it</text>
+<rect x="290" y="20" width="230" height="80" rx="8" fill="#fff8e1" stroke="#f0d58a"/><text x="405.0" y="42" text-anchor="middle" font-weight="700" font-size="13" fill="#1c1c1c">Not approved</text><text x="405.0" y="60" text-anchor="middle" font-size="11.5" fill="#5c6c74">seen by its followers</text><text x="405.0" y="76" text-anchor="middle" font-size="11.5" fill="#5c6c74">and mods only</text>
+<rect x="290" y="150" width="230" height="80" rx="8" fill="#e3f5e8" stroke="#9ed3ad"/><text x="405.0" y="172" text-anchor="middle" font-weight="700" font-size="13" fill="#1c1c1c">Approved</text><text x="405.0" y="190" text-anchor="middle" font-size="11.5" fill="#5c6c74">listed for everyone</text><text x="405.0" y="206" text-anchor="middle" font-size="11.5" fill="#5c6c74">sorted by followers</text>
+<rect x="640" y="20" width="240" height="80" rx="8" fill="#fff" stroke="#c9d1d6"/><text x="760.0" y="42" text-anchor="middle" font-weight="700" font-size="13" fill="#1c1c1c">Owner leaves</text><text x="760.0" y="60" text-anchor="middle" font-size="11.5" fill="#5c6c74">next follower (earliest)</text><text x="760.0" y="76" text-anchor="middle" font-size="11.5" fill="#5c6c74">becomes owner</text>
+<rect x="640" y="150" width="240" height="80" rx="8" fill="#fde5dc" stroke="#f3b49c"/><text x="760.0" y="172" text-anchor="middle" font-weight="700" font-size="13" fill="#1c1c1c">Deleted</text><text x="760.0" y="190" text-anchor="middle" font-size="11.5" fill="#5c6c74">only when nobody</text><text x="760.0" y="206" text-anchor="middle" font-size="11.5" fill="#5c6c74">follows it any more</text>
+<line x1="210" y1="105" x2="288" y2="65" stroke="#5c6c74" stroke-width="1.6" marker-end="url(#a1)"/><text x="238" y="78" text-anchor="middle" font-size="11" fill="#5c6c74">user</text>
+<line x1="210" y1="135" x2="288" y2="185" stroke="#5c6c74" stroke-width="1.6" marker-end="url(#a1)"/><text x="232" y="176" text-anchor="middle" font-size="11" fill="#5c6c74">mod adds</text>
+<line x1="395" y1="100" x2="395" y2="148" stroke="#5c6c74" stroke-width="1.6" marker-end="url(#a1)"/><text x="420" y="128" text-anchor="middle" font-size="11" fill="#5c6c74">mod ✓</text>
+<line x1="430" y1="150" x2="430" y2="102" stroke="#5c6c74" stroke-width="1.6" marker-end="url(#a3)"/>
+<text x="468" y="128" text-anchor="middle" font-size="11" fill="#5c6c74">unapprove</text>
+<line x1="520" y1="60" x2="638" y2="60" stroke="#5c6c74" stroke-width="1.6" marker-end="url(#a1)"/><text x="579" y="52" text-anchor="middle" font-size="11" fill="#5c6c74">🗑 / 🔔 off</text>
+<line x1="520" y1="190" x2="638" y2="190" stroke="#5c6c74" stroke-width="1.6" marker-end="url(#a1)"/><text x="579" y="182" text-anchor="middle" font-size="11" fill="#5c6c74">last follower leaves</text>
+<line x1="760" y1="100" x2="760" y2="148" stroke="#5c6c74" stroke-width="1.6" marker-end="url(#a1)"/>
+</svg><figcaption>Nobody can delete a keyword for other people; approval only controls whether it is listed for everyone.</figcaption></figure>
+
+<h3>4.4 Who sees what</h3>
+<p>Row buttons form one segmented group, always in this order: <b>🔔 Follow · 🗑 Remove · ✓ Approve</b>.</p>
+<table>
+<tr><th>Who</th><th>Rows shown</th><th>Line 2</th><th>Buttons</th></tr>
+<tr><td>Everyone</td><td>Approved keywords. Their own first (newest first), then others by <b>most followers</b>.</td><td><code>4 following</code></td><td>🔔</td></tr>
+<tr><td>Owner</td><td>Also their own keywords before approval.</td><td><code>4 following · yours</code></td><td>🔔 🗑</td></tr>
+<tr><td>Mod</td><td>Everything.</td><td><code>4 following · added by u/name</code></td><td>🔔 ✓ (🗑 only on their own). Green ✓ = approved, grey ✓ = not yet; tap to switch.</td></tr>
+<tr><td>Logged out</td><td>Approved keywords.</td><td><code>4 following</code></td><td>🔔 disabled ("Log in to follow"); input "Log in to add".</td></tr>
+</table>
+<p>Count line under the input: <code>9 keywords · 3 you follow</code> (mods: <code>· 2 to approve</code>; logged out: just <code>9 keywords</code>; hidden when 0). Errors use the same line in red until the user types again.</p>
+
+<!-- ============================================================ -->
+<h2 id="search">5. Search</h2>
+<ul>
+<li>One input, <b>"Search films, like ARIKOMBAN"</b>, with ✕ to clear. Works from <b>1 character</b>, "contains" match.</li>
+<li>Count line: the <b>total number of films</b>, e.g. <code>4,223 films</code> (empty input, shows the full coverage), or <code>13 matches</code>. When the text works as a keyword you don't follow: <code>2 matches · Watch ARIKOMBAN</code> (spaces joined: "mr x" → <b>Watch MRX</b>; 2-letter text only if a film has exactly that title).</li>
+<li><b>One row per certificate</b>, newest first, no grouping (every Ref is unique; versions in different languages are separate rows):</li>
+</ul>
+<div class="mock">"EE PAATA KORINAVAARU NEMALIPAA…     ›
+Telugu · UA 16+ · 1h 55m 24s</div>
+<ul>
+<li>Nothing found: <b>"Not certified yet"</b> + button <b>"Watch KGF"</b> (one tap adds the keyword and opens the Watchlist).</li>
+<li>Tap a row → <b>bottom sheet "CBFC certificate"</b> over the post (close with ✕, tap outside, or Esc). All 6 fields, caption above value, the title in full:</li>
+</ul>
+<div class="mock">CBFC certificate                       ✕
+Title
+"EE PAATA KORINAVAARU NEMALIPAALEM NUNDI
+RAMAA,JYOTSNA,NANDU,MURALI,KABEER,…"
+Language         Category        Length
+Telugu           UA 16+          1h 55m 24s
+Certificate no.            When
+HYD/1/377/2026             2026-11-06 D1</div>
+
+<!-- ============================================================ -->
+<h2 id="daily">6. Daily post</h2>
+<ul>
+<li>Created by the app once a day: <b>"CBFC certified – 2026-11-07"</b> with a table Title · Language · Category · Length (1 hour or more only).</li>
+<li>Lists certificates <b>first seen that day</b>, so a certificate the portal shows late still appears once.</li>
+<li>CBFC certifies during office hours (about 08:00–20:00 IST), so the default time is <b>23:30 IST</b>; <code>cbfc.js</code> must run at least once after 20:00.</li>
+<li>Title and time are <b>mod settings</b>. Keywords are not touched by the daily post.</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2 id="look">7. Look and text</h2>
+<h3>7.1 Look</h3>
+<ul>
+<li>Every list row is exactly <b>2 lines</b>; anything too long ends with "…". Only the details sheet shows full text.</li>
+<li><b>6 rows per page</b> (50 px each), sized for the tall post. The pager is hidden when everything fits on one page.</li>
+<li>Line icons (bell, bin, tick), not emoji. Bell: grey outline = not following, orange filled = following. Bin: grey, red on hover. Tick: grey / green.</li>
+<li>One corner radius everywhere: <b>8 px</b>. Orange only for main actions (Add, current tab, pager).</li>
+<li><b>Light and dark mode</b> from the same colour tokens.</li>
+</ul>
+
+<h3>7.2 Writing rules (mobile first)</h3>
+<ul>
+<li>Toasts fit on <b>one line</b> on a 360 px phone (~30 characters), no full stops. They appear over the pager, never over a row.</li>
+<li>Say only what changed for the user; never explain what happened behind the scenes.</li>
+<li>Limits are mentioned only when someone hits them.</li>
+<li>Tooltips / screen-reader labels: 1–2 words.</li>
+</ul>
+
+<h3>7.3 All texts</h3>
+<table>
+<tr><th>Where</th><th>Text</th></tr>
+<tr><td>Placeholders</td><td><code>Film name, like KATTALAN</code> · <code>Search films, like ARIKOMBAN</code> · <code>Log in to add</code>. The example is a random real film title that is one word of 5–14 characters.</td></tr>
+<tr><td>Toasts</td><td><code>Following DRISHYAM</code> · <code>Unfollowed LOKAH · Undo</code> · <code>Removed LOKAH · Undo</code> · <code>Added KGF · in review</code> · <code>Added KGF</code> (mod) · <code>KGF approved</code> / <code>KGF unapproved</code> · <code>You can follow 3 for now</code></td></tr>
+<tr><td>Errors</td><td><code>One word only</code> · <code>Letters and numbers only (2–20)</code> · <code>Too common, try another word</code> · <code>Already following KGF</code> · <code>You can follow 3 for now</code></td></tr>
+<tr><td>Counts</td><td><code>9 keywords · 3 you follow</code> · <code>· 2 to approve</code> · <code>13 matches</code> · <code>4,223 films</code></td></tr>
+<tr><td>Chip</td><td><code>2 new ›</code></td></tr>
+<tr><td>Empty</td><td><code>No keywords yet</code> · <code>Log in to follow</code> · <code>Not certified yet</code> + <code>Watch KGF</code></td></tr>
+<tr><td>Sheet</td><td><code>CBFC certificate</code>; labels Title, Language, Category, Length, Certificate no., When</td></tr>
+<tr><td>Labels</td><td>Follow · Unfollow · Remove · Approve · Unapprove · Show matches · Clear search · Close</td></tr>
+</table>
+<p>Undo lasts 4 seconds and respects the follow limit (if the user followed something else meanwhile: "You can follow 3 for now"). After follow/add the list jumps to the page where that keyword is.</p>
+
+<!-- ============================================================ -->
+<h2 id="data">8. What the data says (Postgres, 42k certificates)</h2>
+<table>
+<tr><th>Finding</th><th>Decision</th></tr>
+<tr><td>Last 90 days: 2,166 rows under 5 min, 80 at 5–30 min, 14 at 30–60 min, ~1,000 at 1 hour+.</td><td>Use only films of <b>1 hour or more</b> everywhere.</td></tr>
+<tr><td>~12 films of 1 hour+ per day.</td><td>Pages of 6 are enough; daily post stays short.</td></tr>
+<tr><td>Same title certified many times (PEDDI: 16 rows, 5 languages); 8% change category on re-certification.</td><td>No grouping; each certificate is its own row with its own category and length.</td></tr>
+<tr><td>2 letters are inside ~21–28% of titles ("ra", "an"); real 2-character titles exist (45, DC, JK, 29).</td><td>2-letter keywords match whole titles only.</td></tr>
+<tr><td>Longest word in a title: 18 characters.</td><td>Keyword limit 2–20.</td></tr>
+<tr><td>~1 in 4 titles is one word of 5–14 characters.</td><td>Source for placeholder examples; no list to maintain.</td></tr>
+<tr><td>Longest title: 99 characters.</td><td>Lists cut with "…"; the sheet wraps (tested at 360 px).</td></tr>
+<tr><td>One row dated 2038-10-07 (bad source data).</td><td>Ingest skips dates after today (IST).</td></tr>
+</table>
+
+<!-- ============================================================ -->
+<h2 id="build">9. Architecture</h2>
+<figure class="fig"><svg viewBox="0 0 900 330" font-family="system-ui,Segoe UI,Roboto,sans-serif"><defs><marker id="a1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#5c6c74"/></marker></defs>
+<text x="12" y="20" font-size="12" font-weight="700" fill="#a33000">OUR SERVER (unchanged)</text>
+<text x="470" y="20" font-size="12" font-weight="700" fill="#a33000">REDDIT</text>
+<line x1="450" y1="10" x2="450" y2="320" stroke="#e3e5e8" stroke-width="2"/>
+<rect x="12" y="40" width="170" height="60" rx="8" fill="#fff" stroke="#c9d1d6"/><text x="97.0" y="62" text-anchor="middle" font-weight="700" font-size="13" fill="#1c1c1c">CBFC portal</text><text x="97.0" y="80" text-anchor="middle" font-size="11.5" fill="#5c6c74">e-Cinepramaan</text>
+<rect x="12" y="140" width="170" height="76" rx="8" fill="#fff8f5" stroke="#ffb59a"/><text x="97.0" y="162" text-anchor="middle" font-weight="700" font-size="13" fill="#1c1c1c">cbfc.js</text><text x="97.0" y="180" text-anchor="middle" font-size="11.5" fill="#5c6c74">scrape + OCR captcha</text><text x="97.0" y="196" text-anchor="middle" font-size="11.5" fill="#5c6c74">→ Postgres</text>
+<rect x="240" y="140" width="180" height="76" rx="8" fill="#fff" stroke="#c9d1d6"/><text x="330.0" y="162" text-anchor="middle" font-weight="700" font-size="13" fill="#1c1c1c">Tracker post</text><text x="330.0" y="180" text-anchor="middle" font-size="11.5" fill="#5c6c74">pinned, ~1 week</text><text x="330.0" y="196" text-anchor="middle" font-size="11.5" fill="#5c6c74">Title|Language|…|Ref|When</text>
+<rect x="480" y="120" width="190" height="116" rx="8" fill="#f1fbf9" stroke="#8fd3c4"/><text x="575.0" y="142" text-anchor="middle" font-weight="700" font-size="13" fill="#1c1c1c">Devvit app server</text><text x="575.0" y="160" text-anchor="middle" font-size="11.5" fill="#5c6c74">ingest: new Ref → film</text><text x="575.0" y="176" text-anchor="middle" font-size="11.5" fill="#5c6c74">match keywords</text><text x="575.0" y="192" text-anchor="middle" font-size="11.5" fill="#5c6c74">rules, limits, paging</text><text x="575.0" y="208" text-anchor="middle" font-size="11.5" fill="#5c6c74">daily post job</text>
+<rect x="720" y="70" width="170" height="60" rx="8" fill="#fff" stroke="#c9d1d6"/><text x="805.0" y="92" text-anchor="middle" font-weight="700" font-size="13" fill="#1c1c1c">Redis</text><text x="805.0" y="110" text-anchor="middle" font-size="11.5" fill="#5c6c74">films, keywords, follows</text>
+<rect x="720" y="170" width="170" height="76" rx="8" fill="#fff8f5" stroke="#ffb59a"/><text x="805.0" y="192" text-anchor="middle" font-weight="700" font-size="13" fill="#1c1c1c">Interactive post</text><text x="805.0" y="210" text-anchor="middle" font-size="11.5" fill="#5c6c74">Watchlist | Search</text><text x="805.0" y="226" text-anchor="middle" font-size="11.5" fill="#5c6c74">+ certificate sheet</text>
+<rect x="720" y="266" width="170" height="50" rx="8" fill="#fff" stroke="#c9d1d6"/><text x="805.0" y="288" text-anchor="middle" font-weight="700" font-size="13" fill="#1c1c1c">Daily post</text>
+
+<line x1="97" y1="100" x2="97" y2="138" stroke="#5c6c74" stroke-width="1.6" marker-end="url(#a1)"/><text x="125" y="124" text-anchor="middle" font-size="11" fill="#5c6c74">scrape</text>
+<line x1="182" y1="178" x2="238" y2="178" stroke="#5c6c74" stroke-width="1.6" marker-end="url(#a1)"/><text x="210.0" y="172.0" text-anchor="middle" font-size="11" fill="#5c6c74">edits</text>
+<line x1="420" y1="178" x2="478" y2="178" stroke="#5c6c74" stroke-width="1.6" marker-end="url(#a1)"/><text x="449" y="170" text-anchor="middle" font-size="11" fill="#5c6c74">reads</text>
+<text x="449" y="198" text-anchor="middle" font-size="10.5" fill="#5c6c74">PostUpdate</text>
+<text x="449" y="211" text-anchor="middle" font-size="10.5" fill="#5c6c74">+ every 15 min</text>
+<line x1="670" y1="140" x2="718" y2="108" stroke="#5c6c74" stroke-width="1.6" marker-end="url(#a1)"/>
+<line x1="670" y1="190" x2="718" y2="205" stroke="#5c6c74" stroke-width="1.6" marker-end="url(#a1)"/><text x="694" y="192" text-anchor="middle" font-size="11" fill="#5c6c74">pages</text>
+<line x1="670" y1="225" x2="718" y2="285" stroke="#5c6c74" stroke-width="1.6" marker-end="url(#a1)"/>
+<path d="M97 216 V 290 H 575 V 238" fill="none" stroke="#5c6c74" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#a1)"/>
+<text x="330" y="284" text-anchor="middle" font-size="11" fill="#5c6c74">one-time import (install, or after a gap of more than a week)</text>
+</svg><figcaption>The app never scrapes and never calls our server; the only link is the tracker post (plus a one-time import).</figcaption></figure>
+
+<h3>9.1 Ingest (the core)</h3>
+<figure class="fig"><svg viewBox="0 0 900 120" font-family="system-ui,Segoe UI,Roboto,sans-serif"><defs><marker id="a5" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#5c6c74"/></marker></defs>
+<rect x="10" y="25" width="150" height="70" rx="8" fill="#fff" stroke="#c9d1d6"/><text x="85.0" y="47" text-anchor="middle" font-weight="700" font-size="13" fill="#1c1c1c">Read post</text><text x="85.0" y="65" text-anchor="middle" font-size="11.5" fill="#5c6c74">map columns</text><text x="85.0" y="81" text-anchor="middle" font-size="11.5" fill="#5c6c74">by header name</text>
+<rect x="190" y="25" width="150" height="70" rx="8" fill="#fff" stroke="#c9d1d6"/><text x="265.0" y="47" text-anchor="middle" font-weight="700" font-size="13" fill="#1c1c1c">Each row</text><text x="265.0" y="65" text-anchor="middle" font-size="11.5" fill="#5c6c74">split on |</text><text x="265.0" y="81" text-anchor="middle" font-size="11.5" fill="#5c6c74">(escaped \| kept)</text>
+<rect x="370" y="25" width="160" height="70" rx="8" fill="#fff8e1" stroke="#f0d58a"/><text x="450.0" y="47" text-anchor="middle" font-weight="700" font-size="13" fill="#1c1c1c">Skip if</text><text x="450.0" y="65" text-anchor="middle" font-size="11.5" fill="#5c6c74">Ref known, &lt; 1 hour,</text><text x="450.0" y="81" text-anchor="middle" font-size="11.5" fill="#5c6c74">or date after today</text>
+<rect x="560" y="25" width="150" height="70" rx="8" fill="#e3f5e8" stroke="#9ed3ad"/><text x="635.0" y="47" text-anchor="middle" font-weight="700" font-size="13" fill="#1c1c1c">Store film</text><text x="635.0" y="65" text-anchor="middle" font-size="11.5" fill="#5c6c74">firstSeen = now</text>
+<rect x="740" y="25" width="150" height="70" rx="8" fill="#e3f5e8" stroke="#9ed3ad"/><text x="815.0" y="47" text-anchor="middle" font-weight="700" font-size="13" fill="#1c1c1c">Match keywords</text><text x="815.0" y="65" text-anchor="middle" font-size="11.5" fill="#5c6c74">add Ref to each</text><text x="815.0" y="81" text-anchor="middle" font-size="11.5" fill="#5c6c74">keyword's matches</text>
+<line x1="160" y1="60" x2="188" y2="60" stroke="#5c6c74" stroke-width="1.6" marker-end="url(#a1)"/><line x1="340" y1="60" x2="368" y2="60" stroke="#5c6c74" stroke-width="1.6" marker-end="url(#a1)"/><line x1="530" y1="60" x2="558" y2="60" stroke="#5c6c74" stroke-width="1.6" marker-end="url(#a1)"/><line x1="710" y1="60" x2="738" y2="60" stroke="#5c6c74" stroke-width="1.6" marker-end="url(#a1)"/>
+</svg><figcaption>Runs on every post edit and every 15 minutes; running it twice changes nothing.</figcaption></figure>
+<ol>
+<li>Read the post; find the header row and map columns <b>by name</b> (order may change). Stop with an error if Title, Ref or When is missing.</li>
+<li>Split rows on <code>|</code> (respect escaped <code>\|</code>). Skip rows whose Ref is already stored, under 1 hour, or dated after today (IST).</li>
+<li>Store the film with <code>firstSeen</code> = now.</li>
+<li>For every keyword: if it matches the title, add the Ref to that keyword's match list with <code>firstSeen</code>.</li>
+</ol>
+
+<h3>9.2 Redis keys</h3>
+<table>
+<tr><th>Key</th><th>Type</th><th>Contents</th></tr>
+<tr><td><code>film:{ref}</code></td><td>hash</td><td>title, lang, cat, lengthSec, date, firstSeen</td></tr>
+<tr><td><code>films:bySeen</code></td><td>sorted set</td><td>ref → firstSeen (Search "latest", daily post)</td></tr>
+<tr><td><code>kw:{keyword}</code></td><td>hash</td><td>owner, addedAt, approved</td></tr>
+<tr><td><code>kw:{keyword}:subs</code></td><td>sorted set</td><td>user → time followed (owner = earliest)</td></tr>
+<tr><td><code>kw:{keyword}:matches</code></td><td>sorted set</td><td>ref → firstSeen. "N new" = count with score after the user's follow time.</td></tr>
+<tr><td><code>kw:approved</code></td><td>sorted set</td><td>keyword → follower count (public list order)</td></tr>
+<tr><td><code>kw:pending</code></td><td>sorted set</td><td>keyword → addedAt (mod count "to approve")</td></tr>
+<tr><td><code>user:{name}:follows</code></td><td>set</td><td>keywords the user follows (limit 3)</td></tr>
+<tr><td><code>rate:{name}</code></td><td>counter, 60 s expiry</td><td>add/follow actions in the last minute</td></tr>
+</table>
+<p>Search over titles: in Phase 1 a scan of film titles is fine (thousands of rows); add a word index later only if needed.</p>
+
+<!-- ============================================================ -->
+<h2 id="limits">10. Reddit limits and how the design handles them</h2>
+<table>
+<tr><th>Limit</th><th>Handling</th></tr>
+<tr><td>Inline apps must not scroll inside the post (rejected otherwise).</td><td>Fixed tall height, 6 rows per page, sheet sized to fit.</td></tr>
+<tr><td>Tracker post holds ~1 week (40,000 characters).</td><td>App keeps its own history; one-time import at install and after any gap of more than a week.</td></tr>
+<tr><td>PostUpdate may not fire for edits made through the Data API.</td><td>15-minute backup job reads the post anyway.</td></tr>
+<tr><td>A comment mentioning more than 3 users notifies none of them; bot messages can be flagged as spam.</td><td>Matters only for alerts (later): at most 3 tags per comment, paced sending.</td></tr>
+<tr><td>Redis data belongs to one installation.</td><td>One subreddit (r/kerala_boxoffice) for v1.</td></tr>
+<tr><td>Public listing needs Reddit's app review.</td><td>Not needed for use on our own subreddit.</td></tr>
+<tr><td>Posts come from the app account, not u/HedCET.</td><td>Accepted.</td></tr>
+</table>
+<p style="font-size:13px;color:#5c6c74">Check current Devvit limits (scheduler, Redis size, how the theme is passed to the web view) before Phase 1; they change.</p>
+
+<!-- ============================================================ -->
+<h2 id="rules">11. Build rules</h2>
+<ul>
+<li><b>Server decides:</b> counts, matching and every rule (owner, mod, keyword format, stop words, follow limit, rate limit) run on the server. Browser checks are only for quick feedback.</li>
+<li><b>Paged loading:</b> one page (6 rows) + total count per request.</li>
+<li><b>Dates in IST</b>, stored as <code>YYYY-MM-DD</code>; "today" and D1/D2 calculated in Asia/Kolkata.</li>
+<li><b>Mods</b> via Devvit's moderator check, never a hard-coded name.</li>
+<li><b>Escape</b> titles and keywords before showing them.</li>
+<li><b>Rate limit:</b> 10 add/follow actions per user per minute.</li>
+<li><b>Accessibility:</b> tab roles, labelled icon buttons, sheet keeps focus (✕ focused, Tab stays inside, Esc closes, focus returns).</li>
+<li><b>Pages can shift</b> while others add keywords; acceptable for v1.</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2 id="phases">12. Phases</h2>
+<table>
+<tr><th>Phase</th><th>Work</th><th>Done when</th><th>Status</th></tr>
+<tr><td>0</td><td>Tracker post format: <code>Title | Language | Category | Length | Ref | When</code>, IST dates; web page aligned.</td><td>Live post uses it.</td><td><span class="tag t-ok">done</span></td></tr>
+<tr><td>1</td><td>Devvit project in <code>reddit/app</code>: ingest (trigger + 15-min job), one-time import, Redis keys. Test subreddit with a copy of the post.</td><td>Each Ref stored once; re-runs add nothing; history complete.</td><td><span class="tag t-next">next</span></td></tr>
+<tr><td>2</td><td>Create-post menu (custom title), Search tab, certificate sheet, paging.</td><td>Matches the prototype at 360 px, light and dark.</td><td></td></tr>
+<tr><td>3</td><td>Watchlist: add, follow, limit, ownership, approval, "N new", toasts + Undo.</td><td>All rules in section 4 enforced on the server.</td><td></td></tr>
+<tr><td>4</td><td>Daily post job + mod settings (title, time).</td><td>One post per day, first-seen certificates.</td><td></td></tr>
+<tr><td>5</td><td>Install on r/kerala_boxoffice, pin the app post.</td><td>Live.</td><td></td></tr>
+<tr><td>Later</td><td>Alerts to followers (incl. telling the owner when a keyword is approved); raise the follow limit if needed.</td><td></td><td><span class="tag t-later">later</span></td></tr>
+</table>
+
+<!-- ============================================================ -->
+<h2 id="open">13. Still open</h2>
+<ol>
+<li><b>Alerts:</b> how followers are told (comment tags of ≤ 3 users, private message, or both) and when.</li>
+<li><b>Test subreddit</b> for Phase 1 (e.g. r/cbfc_tracker_dev).</li>
+<li><b>Mods' follow limit:</b> currently none; confirm.</li>
+<li><b><code>cbfc.js</code> schedule:</b> confirm a run after 20:00 IST so the 23:30 daily post is complete.</li>
+</ol>
+</main>
+</body>
+</html>

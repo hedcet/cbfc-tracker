@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CBFC Tracker – Reddit App Prototype</title>
+<style>
+  /* ---------- tokens (light + dark) ---------- */
+  :root { --radius:8px; --bg:#dae0e6; --card:#fff; --ink:#1c1c1c; --mute:#5c6c74; --line:#e5ebee; --chip:#eef1f3; --tonal:#e5ebee;
+          --brand:#ff4500; --brand-soft:#ffe8df; --ok:#0a8a3a; --ok-soft:#e3f5e8; --bad:#d93a00; --bad-soft:#fde5dc; }
+  body.dark { --bg:#0e1113; --card:#181c1f; --ink:#eef1f3; --mute:#8ba2ad; --line:#2a3236; --chip:#22292d; --tonal:#2a3236;
+          --brand-soft:#3a1a0f; --ok:#3fbf6b; --ok-soft:#14301f; --bad:#ff6a3d; --bad-soft:#3a1a0f; }
+  * { box-sizing:border-box; }
+  body { margin:0; font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--ink); }
+  button, input { font:inherit; color:inherit; }
+  [hidden] { display:none !important; }
+
+  /* ---------- page layout (prototype only) ---------- */
+  .wrap { max-width:1180px; margin:0 auto; padding:20px; display:grid; grid-template-columns:1fr 360px; gap:20px; }
+  .wrap > * { min-width:0; }
+  .banner, .section { grid-column:1/-1; }
+  .banner { background:#fff8e1; border:1px solid #f0d58a; border-radius:var(--radius); padding:10px 14px; font-size:13px; color:#1c1c1c; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:var(--radius); overflow:hidden; }
+  .post-head { padding:10px 14px 0; font-size:12px; color:var(--mute); }
+  .post-head b { color:var(--ink); }
+  h1 { font-size:20px; margin:6px 14px 10px; }
+  .viewas { display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-bottom:10px; font-size:13px; }
+  .viewas button { height:30px; padding:0 12px; border:1px solid var(--line); border-radius:var(--radius); background:var(--card); cursor:pointer; font-size:12px; }
+  .viewas button.on { background:var(--ink); color:var(--card); border-color:var(--ink); }
+
+  /* ---------- the app (512 px "tall" post, no scrolling) ---------- */
+  .app { position:relative; height:512px; display:flex; flex-direction:column; margin:0 14px 14px; border:1px solid var(--line); border-radius:var(--radius); overflow:hidden; background:var(--card); }
+  .tabs { display:flex; border-bottom:1px solid var(--line); }
+  .tabs button { flex:1; padding:10px; border:0; border-bottom:3px solid transparent; background:none; cursor:pointer; font-weight:600; color:var(--mute); }
+  .tabs button.on { color:var(--ink); border-color:var(--brand); }
+  .tabs svg { width:16px; height:16px; vertical-align:-3px; margin-right:4px; }
+  .pane { display:none; flex:1; min-height:0; flex-direction:column; padding:12px; } .pane.on { display:flex; }
+
+  .bar { display:flex; gap:8px; margin-bottom:8px; }
+  .inwrap { position:relative; flex:1; display:flex; min-width:0; }
+  .input { flex:1; min-width:0; height:34px; padding:0 34px 0 12px; border:1px solid var(--line); border-radius:var(--radius); background:var(--card); outline:none; text-overflow:ellipsis; }
+  .input:focus { border-color:var(--brand); }
+  .btn { height:34px; padding:0 16px; border:1px solid var(--brand); border-radius:var(--radius); background:var(--card); color:var(--brand); font-weight:600; cursor:pointer; white-space:nowrap; }
+  .btn.fill { background:var(--brand); color:#fff; }
+  .btn.sm { height:28px; padding:0 12px; font-size:12px; }
+  .btn:disabled { opacity:.45; cursor:not-allowed; }
+
+  .count { min-height:16px; margin:-2px 0 4px 2px; font-size:12px; color:var(--mute); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .count.err { color:var(--bad); }
+  .count a { color:var(--brand); font-weight:600; text-decoration:none; }
+
+  .list { flex:1; overflow:hidden; }
+  .row { display:flex; align-items:center; gap:8px; height:50px; padding:6px 4px; border-bottom:1px solid var(--line); }
+  .row:last-child { border-bottom:0; }
+  .row.click { cursor:pointer; } .row.click:hover { background:var(--chip); }
+  .grow { flex:1; min-width:0; }
+  .l1, .l2 { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .l1 { font-weight:600; }
+  .l2 { font-size:12px; color:var(--mute); }
+  .chev { color:var(--mute); font-size:18px; padding:0 4px; }
+  .chip { margin-left:8px; padding:1px 8px; border-radius:var(--radius); background:var(--ok-soft); color:var(--ok); font-size:12.5px; cursor:pointer; }
+  .empty { padding:20px 4px; text-align:center; color:var(--mute); }
+  .empty .btn { margin-top:10px; }
+
+  /* row actions: one segmented button group */
+  .acts { display:inline-flex; flex:none; border:1px solid var(--line); border-radius:var(--radius); overflow:hidden; }
+  .icon { display:inline-grid; place-items:center; width:32px; height:28px; padding:0; border:0; background:transparent; color:var(--mute); cursor:pointer; }
+  .icon + .icon { border-left:1px solid var(--line); }
+  .icon svg { width:16px; height:16px; }
+  .icon:hover { background:var(--tonal); color:var(--ink); }
+  .icon:disabled { opacity:.35; cursor:not-allowed; }
+  .icon.bell.on { background:var(--brand-soft); color:var(--brand); }
+  .icon.del:hover { background:var(--bad-soft); color:var(--bad); }
+  .icon.ok.on { background:var(--ok-soft); color:var(--ok); }
+  .icon.round { width:30px; height:30px; border-radius:var(--radius); }
+  .clear { position:absolute; right:3px; top:2px; }
+
+  .pager { display:flex; justify-content:center; align-items:center; gap:10px; padding-top:8px; border-top:1px solid var(--line); font-size:12px; color:var(--mute); }
+
+  /* toast: one line, over the pager area */
+  .toast { position:absolute; left:12px; right:12px; bottom:8px; z-index:6; display:none; align-items:center; gap:10px; padding:9px 12px;
+           border-radius:var(--radius); background:#1c1c1c; color:#fff; font-size:13px; box-shadow:0 4px 14px rgba(0,0,0,.25); }
+  body.dark .toast { background:var(--ink); color:var(--card); } body.dark .toast button { color:var(--brand); }
+  .toast.on { display:flex; } .toast span { flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .toast button { border:0; background:none; color:#ff8a5c; font-weight:700; cursor:pointer; }
+
+  /* certificate sheet */
+  .sheet-bg { position:absolute; inset:0; z-index:5; display:none; align-items:flex-end; background:rgba(0,0,0,.45); }
+  .sheet-bg.on { display:flex; }
+  .sheet { width:100%; max-height:100%; padding:6px 16px 10px; border-radius:16px 16px 0 0; background:var(--card); animation:up .18s ease-out; }
+  @keyframes up { from { transform:translateY(40px); opacity:.5; } to { transform:none; opacity:1; } }
+  .grab { width:40px; height:4px; margin:2px auto 8px; border-radius:2px; background:var(--line); }
+  .sheet-head { display:flex; align-items:center; padding-bottom:8px; border-bottom:1px solid var(--line); }
+  .sheet-head h3 { flex:1; margin:0; font-size:17px; }
+  .kv { display:flex; flex-direction:column; gap:1px; padding:5px 0; border-bottom:1px solid var(--line); font-size:13px; }
+  .kv span { color:var(--mute); } .kv b { font-weight:600; overflow-wrap:anywhere; }
+  .kv.title b { font-size:14px; line-height:1.3; }
+  .grid { display:grid; column-gap:16px; border-bottom:1px solid var(--line); } .grid .kv { border-bottom:0; }
+  .grid.c3 { grid-template-columns:repeat(3,1fr); } .grid.c2 { grid-template-columns:repeat(2,1fr); border-bottom:0; }
+
+  /* simulator + previews (prototype only) */
+  .side h3 { margin:0; padding:10px 14px; background:var(--brand); color:#fff; font-size:13px; }
+  .side .body { padding:12px 14px; font-size:13px; }
+  .side p { margin:10px 0 4px; }
+  .side .bar { flex-wrap:wrap; }
+  .log { height:180px; overflow:auto; padding:10px; border-radius:var(--radius); background:#111; color:#b6f3b6; font:11.5px/1.5 ui-monospace,Consolas,monospace; white-space:pre-wrap; }
+  .legend { margin-top:10px; font-size:12px; line-height:1.6; color:var(--mute); }
+  .section .card { padding:14px; }
+  .section h2 { margin:0 0 8px; font-size:16px; }
+  .meta { font-size:12px; color:var(--mute); }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th, td { padding:6px 8px; text-align:left; border-bottom:1px solid var(--line); } th { background:var(--chip); }
+  pre.src { margin:0; padding:10px; overflow:auto; border-radius:var(--radius); background:var(--chip); font-size:11.5px; }
+  @media (max-width:900px) { .wrap { grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="banner"><b>Prototype only.</b> Sample data in your browser. The app area is Reddit's <b>tall</b> post (512 px) with <b>no scrolling</b>, so lists use pages. Switch the viewer above the post and use the <b>Simulator</b> on the right.</div>
+
+  <!-- ===== the post ===== -->
+  <div>
+    <div class="viewas"><b>Viewing as:</b>
+      <button data-u="u/you" class="on">u/you (owns LOKAH, at the limit)</button>
+      <button data-u="u/someone">u/someone (follows LOKAH)</button>
+      <button data-u="u/public">u/public</button>
+      <button data-u="u/HedCET">u/HedCET (mod)</button>
+      <button data-u="">logged out</button>
+    </div>
+    <div class="card">
+      <div class="post-head"><b>r/kerala_boxoffice</b> · Posted by u/cbfc-tracker-app · pinned</div>
+      <h1 id="postTitle">🎬 CBFC Tracker</h1>
+      <div class="app">
+        <div class="tabs" role="tablist">
+          <button role="tab" data-t="watch" class="on" aria-selected="true" aria-controls="watch"></button>
+          <button role="tab" data-t="search" aria-selected="false" aria-controls="search"></button>
+        </div>
+
+        <div class="pane on" id="watch" role="tabpanel">
+          <div class="bar">
+            <input id="wInput" class="input" type="text" aria-label="Film name">
+            <button class="btn fill" id="wAdd">Add</button>
+          </div>
+          <div class="count" id="wCount" aria-live="polite"></div>
+          <div class="list" id="wList"></div>
+          <div class="pager" id="wPager"></div>
+        </div>
+
+        <div class="pane" id="search" role="tabpanel">
+          <div class="bar"><div class="inwrap">
+            <input id="sInput" class="input" type="text" aria-label="Search films">
+            <button class="icon round clear" id="sClear" aria-label="Clear search" hidden></button>
+          </div></div>
+          <div class="count" id="sCount" aria-live="polite"></div>
+          <div class="list" id="sList"></div>
+          <div class="pager" id="sPager"></div>
+        </div>
+
+        <div class="sheet-bg" id="sheetBg"><div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+          <div class="grab"></div>
+          <div class="sheet-head"><h3 id="sheetTitle">CBFC certificate</h3><button class="icon round" id="sheetClose" aria-label="Close"></button></div>
+          <div id="sheetBody"></div>
+        </div></div>
+
+        <div class="toast" id="toast" role="status"><span id="toastMsg"></span><button id="toastUndo">Undo</button></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== simulator ===== -->
+  <div class="card side">
+    <h3>⚙️ Simulator</h3>
+    <div class="body">
+      <p style="margin-top:0"><b>Create the post</b> (mod menu, any title)</p>
+      <div class="bar"><input id="newTitle" class="input" type="text" value="🎬 CBFC Tracker"><button class="btn sm" id="mkPost">Create</button></div>
+      <p><b>Theme</b></p>
+      <div class="bar"><button class="btn sm fill" id="thLight">Light</button><button class="btn sm" id="thDark">Dark</button></div>
+      <p><b>1.</b> <code>cbfc.js</code> edits the tracker post</p>
+      <button class="btn sm fill" id="simEdit">Add 3 new rows</button>
+      <p><b>2.</b> End of day</p>
+      <button class="btn sm" id="simDaily">Run daily post job</button>
+      <p><b>3.</b> Preview states</p>
+      <div class="bar">
+        <button class="btn sm" id="pvEmpty">Empty watchlist</button>
+        <button class="btn sm" id="pvNone">No search results</button>
+        <button class="btn sm" id="pvOut">Logged out</button>
+        <button class="btn sm" id="pvReset">Reset</button>
+      </div>
+      <p>App log</p>
+      <div class="log" id="log"></div>
+      <div class="legend">
+        <b>Row buttons:</b> 🔔 follow (orange = following) · 🗑 remove (owner only) · ✓ approve (mods only; green = listed for everyone).<br>
+        Follow limit: 3 per user (not mods). Keywords: one word, 2–20 letters/numbers; 2 letters = whole title only.
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== daily post preview ===== -->
+  <div class="section"><div class="card">
+    <h2>📰 Daily post (created by the app)</h2>
+    <div id="daily" class="meta">Click <b>Run daily post job</b>. It lists certificates first seen today.</div>
+  </div></div>
+
+  <!-- ===== tracker post (source) ===== -->
+  <div class="section"><div class="card">
+    <h2>📄 Tracker post written by cbfc.js (the app only reads it)</h2>
+    <pre class="src" id="src"></pre>
+  </div></div>
+</div>
+
+<script>
+/* =========================================================
+   Helpers and settings
+   ========================================================= */
+const $ = id => document.getElementById(id);
+const PAGE = 6;                          // rows per page: fits the 512 px tall post
+const MAX_FOLLOW = 3;                    // v1 follow limit per user (mods: no limit)
+const KEYWORD = /^[a-z0-9]{2,20}$/;      // one word; the longest word in any title is 18
+const STOP = new Set("the of and a an in on to is it my i me we you he she his her love man life story part movie film".split(" "));
+const MODS = new Set(["u/HedCET"]);      // real app: Devvit's moderator check
+
+const ICON = {
+  star:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.3 6.4 20.2l1.1-6.2L3 9.6l6.2-.9z"/></svg>',
+  search: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>',
+  bell:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg>',
+  bellOn: '<svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0" fill="none"/></svg>',
+  trash:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6"/></svg>',
+  check:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5L20 7"/></svg>',
+  close:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>',
+};
+
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
+const norm = t => t.toLowerCase().replace(/[^0-9a-z]+/g, "");
+const up = k => k.toUpperCase();
+const log = m => { $("log").textContent += `[${new Date().toLocaleTimeString()}] ${m}\n`; $("log").scrollTop = 1e9; };
+
+// dates are IST, like CBFC
+const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+const ago = n => { const d = new Date(today + "T00:00:00Z"); d.setUTCDate(d.getUTCDate() - n); return d.toISOString().slice(0, 10); };
+const when = d => { const k = Math.round((new Date(today) - new Date(d)) / 864e5); return k > 0 ? `${d} D${k}` : d; };
+const minutes = len => { const h = len.match(/(\d+)h/), m = len.match(/(\d+)m(?!s)/); return (h ? 60 * h[1] : 0) + (m ? +m[1] : 0); };
+
+/* =========================================================
+   Sample data
+   ========================================================= */
+// certificates as read from the tracker post; seen = when the app first saw the row
+const films = [
+  ["DIL/2/101/2026", 0, "28s",        "Hindi",     "THE HAZELNUT FACTORY MITHAI BHI CHOCOLATE BHI", "U"],
+  ["CHE/1/210/2026", 0, "2h 7s",      "Tamil",     "ARIKOMBAN", "UA 13+"],
+  ["HYD/1/377/2026", 1, "1h 55m 24s", "Telugu",    "\"EE PAATA KORINAVAARU NEMALIPAALEM NUNDI RAMAA,JYOTSNA,NANDU,MURALI,KABEER,DOL RAVI MODHALAGUVAARU\"", "UA 16+"],
+  ["TVM/1/41/2026",  2, "2h 7s",      "Malayalam", "ARIKOMBAN", "UA 13+"],
+  ["TVM/1/44/2026",  3, "1h 55m 10s", "Malayalam", "BOUMA", "A"],
+  ["X/1/2026",  1, "2h 13m", "Tamil",     "PEDDI", "UA 16+"],
+  ["X/2/2026",  2, "3h 16m", "Telugu",    "MR X", "UA 13+"],
+  ["X/3/2026",  3, "2h 19m", "Kannada",   "KATTALAN", "A"],
+  ["X/4/2026",  4, "3h 22m", "Malayalam", "BLAST", "UA 16+"],
+  ["X/5/2026",  1, "2h 25m", "Hindi",     "AAROMALEY", "UA 13+"],
+  ["X/6/2026",  2, "3h 28m", "Tamil",     "MRITHYUNJAY", "U"],
+  ["X/7/2026",  3, "2h 31m", "Telugu",    "GHOST SOLDIER", "A"],
+  ["X/8/2026",  4, "3h 34m", "Kannada",   "TALAQ MUBARAK", "A"],
+  ["X/9/2026",  1, "2h 40m", "Hindi",     "APSARA-BORN TO RISE", "U"],
+  ["X/10/2026", 2, "1h 46m", "Bhojpuri",  "ANPADH BAHU", "UA 13+"],
+  ["X/11/2026", 5, "2h 12m", "Hindi",     "45", "UA 16+"],
+].map(([ref, daysAgo, len, lang, title, cat], i) => ({ ref, date: ago(daysAgo), len, lang, title, cat, seen: 100 - i }));
+const incoming = [
+  { ref: "TVM/1/45/2026",  len: "2h 33m 2s", lang: "Malayalam", title: "DRISHYAM 3", cat: "UA 13+" },
+  { ref: "CHE/1/230/2026", len: "2h 33m 2s", lang: "Tamil",     title: "DRISHYAM 3", cat: "UA 13+" },
+  { ref: "HYD/2/301/2026", len: "45s",       lang: "Telugu",    title: "AMMA PICKLES AD", cat: "U" },
+];
+let clock = 100;                         // app time; rows above were seen at time <= 100
+
+// keyword: owner = first adder; subs: user -> time followed; approved = listed for everyone
+let nextId = 0;
+const kw = (keyword, owner, subs, approved) => ({ id: ++nextId, keyword, owner, subs, approved, addedAt: nextId });
+const seed = () => [
+  kw("arikomban", "u/a1",         { "u/a1": 0, "u/you": 0 }, true),
+  kw("peddi",     "u/thalaivar",  { "u/thalaivar": 0, "u/you": 0 }, true),
+  kw("drishyam",  "u/kochi_fan",  { "u/kochi_fan": 100, "u/mollywood_man": 100, "u/lal_ettan": 100 }, true),
+  kw("coolie",    "u/thalapathy_vijay_forever_fan_club_2026", { "u/thalapathy_vijay_forever_fan_club_2026": 100 }, true),
+  kw("toxic",     "u/rocky",      { "u/rocky": 100 }, true),
+  kw("kantara",   "u/rishab_fan", { "u/rishab_fan": 100 }, true),
+  kw("ramayana",  "u/b1",         { "u/b1": 100 }, true),
+  kw("blah",      "u/troll42",    { "u/troll42": 100, "u/x9": 100 }, false),
+  kw("lokah",     "u/you",        { "u/you": 100, "u/someone": 100 }, false),
+  kw("empuraan",  "u/HedCET",     { "u/HedCET": 100 }, true),
+];
+let keywords = seed();
+
+/* =========================================================
+   State and rules
+   ========================================================= */
+let viewer = "u/you";
+const loggedIn = () => !!viewer;
+const isMod = () => MODS.has(viewer);
+const follows = k => viewer in k.subs;
+const followerCount = k => Object.keys(k.subs).length;
+const atLimit = () => !isMod() && keywords.filter(follows).length >= MAX_FOLLOW;
+const page = { w: 0, s: 0 };
+
+const isFilm = f => minutes(f.len) >= 60;                      // under 1 hour = ads, never used
+const newest = list => list.slice().sort((a, b) => b.date.localeCompare(a.date) || b.seen - a.seen);
+const contains = (title, q) => norm(title).includes(q);
+// 2 letters = whole title only (2 letters are inside a quarter of all titles); 3+ = contains
+const kwMatch = (title, k) => k.length <= 2 ? norm(title) === k : contains(title, k);
+const newCount = k => follows(k) ? films.filter(f => isFilm(f) && f.seen > k.subs[viewer] && kwMatch(f.title, k.keyword)).length : 0;
+
+function keywordError(k) {
+  if (!KEYWORD.test(k)) return /\s/.test(k) ? "One word only" : "Letters and numbers only (2–20)";
+  if (STOP.has(k)) return "Too common, try another word";
+  const same = keywords.find(x => x.keyword === k);
+  if (same && follows(same)) return `Already following ${up(k)}`;
+  if (atLimit()) return `You can follow ${MAX_FOLLOW} for now`;
+  return "";
+}
+// what Search may offer as "Watch X": the text joined into one word, if it would be a useful keyword
+function watchable(raw) {
+  const k = norm(raw);
+  if (!loggedIn() || !KEYWORD.test(k) || STOP.has(k)) return "";
+  if (k.length <= 2 && !films.some(f => isFilm(f) && norm(f.title) === k)) return "";
+  const same = keywords.find(x => x.keyword === k);
+  return same && follows(same) ? "" : k;
+}
+
+/* =========================================================
+   Shared UI pieces
+   ========================================================= */
+function pager(id, key, total, rerender) {
+  const pages = Math.max(1, Math.ceil(total / PAGE));
+  page[key] = Math.min(page[key], pages - 1);
+  const el = $(id);
+  el.style.visibility = pages > 1 ? "visible" : "hidden";
+  el.innerHTML = `<button class="btn sm" ${page[key] ? "" : "disabled"}>‹ Prev</button><span>Page ${page[key] + 1} of ${pages}</span><button class="btn sm" ${page[key] < pages - 1 ? "" : "disabled"}>Next ›</button>`;
+  el.firstChild.onclick = () => { page[key]--; rerender(); };
+  el.lastChild.onclick = () => { page[key]++; rerender(); };
+  return page[key] * PAGE;
+}
+
+let toastTimer, undoFn = null;
+function toast(msg, undo) {
+  $("toastMsg").textContent = msg;
+  undoFn = undo || null;
+  $("toastUndo").hidden = !undo;
+  $("toast").classList.add("on");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { $("toast").classList.remove("on"); undoFn = null; }, 4000);
+}
+$("toastUndo").onclick = () => { const fn = undoFn; undoFn = null; $("toast").classList.remove("on"); if (fn) fn(); };
+
+function placeholders() {
+  // a random real film title that is one word of 5–14 characters
+  const names = films.filter(f => isFilm(f) && /^[A-Z0-9]{5,14}$/.test(f.title)).map(f => f.title);
+  const pick = () => names[Math.floor(Math.random() * names.length)] || "DRISHYAM";
+  $("wInput").placeholder = loggedIn() ? `Film name, like ${pick()}` : "Log in to add";
+  $("sInput").placeholder = `Search films, like ${pick()}`;
+}
+
+function showTab(t) {
+  document.querySelectorAll(".tabs button").forEach(b => { const on = b.dataset.t === t; b.classList.toggle("on", on); b.setAttribute("aria-selected", on); });
+  document.querySelectorAll(".pane").forEach(p => p.classList.toggle("on", p.id === t));
+}
+document.querySelectorAll(".tabs button").forEach(b => b.onclick = () => showTab(b.dataset.t));
+
+/* =========================================================
+   Watchlist
+   ========================================================= */
+let wError = "";
+const visible = k => k.approved || isMod() || follows(k);
+function watchOrder() {
+  const mine = k => follows(k) || k.owner === viewer ? 0 : 1;   // mine first (newest), then others by followers
+  return keywords.filter(visible).sort((a, b) => mine(a) - mine(b) || (mine(a) ? followerCount(b) - followerCount(a) : 0) || b.addedAt - a.addedAt);
+}
+const jumpTo = k => { const i = watchOrder().indexOf(k); if (i >= 0) page.w = Math.floor(i / PAGE); };
+
+function renderWatch() {
+  const signed = loggedIn(), list = watchOrder();
+  $("wInput").disabled = $("wAdd").disabled = !signed;
+
+  const toApprove = list.filter(k => !k.approved).length;
+  $("wCount").className = wError ? "count err" : "count";
+  $("wCount").textContent = wError || (list.length ? [`${list.length} keyword${list.length === 1 ? "" : "s"}`,
+    signed ? `${list.filter(follows).length} you follow` : "", isMod() && toApprove ? `${toApprove} to approve` : ""].filter(Boolean).join(" · ") : "");
+
+  const start = pager("wPager", "w", list.length, renderWatch);
+  $("wList").innerHTML = list.slice(start, start + PAGE).map(k => {
+    const on = follows(k), n = newCount(k), owner = k.owner === viewer;
+    const chip = n ? `<span class="chip" title="Show matches" onclick="searchFor(${k.id})">${n} new ›</span>` : "";
+    const line2 = `${followerCount(k)} following${owner ? " · yours" : isMod() ? ` · added by ${k.owner}` : ""}`;
+    const acts = [`<button class="icon bell ${on ? "on" : ""}" ${signed ? "" : "disabled"} title="${!signed ? "Log in to follow" : on ? "Unfollow" : "Follow"}" aria-label="${on ? "Unfollow" : "Follow"}" aria-pressed="${on}" onclick="toggleFollow(${k.id})">${on ? ICON.bellOn : ICON.bell}</button>`];
+    if (owner) acts.push(`<button class="icon del" title="Remove" aria-label="Remove" onclick="leave(${k.id})">${ICON.trash}</button>`);
+    if (isMod()) acts.push(`<button class="icon ok ${k.approved ? "on" : ""}" title="${k.approved ? "Unapprove" : "Approve"}" aria-label="${k.approved ? "Unapprove" : "Approve"}" aria-pressed="${k.approved}" onclick="approve(${k.id})">${ICON.check}</button>`);
+    return `<div class="row"><div class="grow"><div class="l1">${esc(up(k.keyword))}${chip}</div><div class="l2">${esc(line2)}</div></div><div class="acts">${acts.join("")}</div></div>`;
+  }).join("") || `<div class="empty">${signed ? "No keywords yet" : "Log in to follow"}</div>`;
+}
+
+const byId = id => keywords.find(k => k.id === id);
+
+function addKeyword(raw) {
+  const k = raw.trim().toLowerCase(), err = keywordError(k);
+  if (err) { wError = err; renderWatch(); return false; }
+  let item = keywords.find(x => x.keyword === k);
+  if (item) { item.subs[viewer] = clock; toast(`Following ${up(k)}`); log(`${viewer} added "${k}" → already exists, now following`); }
+  else {
+    item = kw(k, viewer, { [viewer]: clock }, isMod()); keywords.push(item);
+    toast(isMod() ? `Added ${up(k)}` : `Added ${up(k)} · in review`);
+    log(`${viewer} added "${k}" → ${isMod() ? "approved" : "waiting for approval"}`);
+  }
+  wError = ""; jumpTo(item); placeholders(); renderWatch(); renderSearch();
+  return true;
+}
+$("wAdd").onclick = () => { if (addKeyword($("wInput").value)) $("wInput").value = ""; };
+$("wInput").onkeydown = e => { if (e.key === "Enter") $("wAdd").click(); };
+$("wInput").oninput = () => { if (wError) { wError = ""; renderWatch(); } };
+
+window.toggleFollow = id => {
+  const k = byId(id);
+  if (follows(k)) return leave(id);
+  if (atLimit()) return toast(`You can follow ${MAX_FOLLOW} for now`);
+  k.subs[viewer] = clock;
+  log(`${viewer} follows "${k.keyword}"`);
+  toast(`Following ${up(k.keyword)}`); jumpTo(k); renderWatch(); renderSearch();
+};
+
+// stop following; the owner passes to the earliest follower; deleted only when nobody follows
+window.leave = id => {
+  const k = byId(id), before = { owner: k.owner, subs: { ...k.subs } }, index = keywords.indexOf(k);
+  const wasOwner = k.owner === viewer;
+  delete k.subs[viewer];
+  const left = Object.entries(k.subs).sort((a, b) => a[1] - b[1]);
+  if (!left.length) keywords.splice(index, 1);
+  else if (wasOwner) k.owner = left[0][0];
+  log(`${viewer} left "${k.keyword}"${!left.length ? " → nobody follows it, deleted" : wasOwner ? ` → owner now ${k.owner}` : ""}`);
+  toast(`${wasOwner ? "Removed" : "Unfollowed"} ${up(k.keyword)}`, () => {
+    if (atLimit()) return toast(`You can follow ${MAX_FOLLOW} for now`);   // undo must not break the limit
+    Object.assign(k, before);
+    if (!keywords.includes(k)) keywords.splice(index, 0, k);
+    log(`undo → "${k.keyword}" restored`); renderWatch(); renderSearch();
+  });
+  renderWatch(); renderSearch();
+};
+
+window.approve = id => {
+  const k = byId(id);
+  k.approved = !k.approved;
+  log(`mod ${k.approved ? "approved" : "unapproved"} "${k.keyword}"`);
+  toast(`${up(k.keyword)} ${k.approved ? "approved" : "unapproved"}`); renderWatch();
+};
+
+// "2 new ›" opens Search with the keyword typed in
+window.searchFor = id => { $("sInput").value = up(byId(id).keyword); page.s = 0; showTab("search"); renderSearch(); };
+
+/* =========================================================
+   Search + certificate sheet
+   ========================================================= */
+function renderSearch() {
+  const raw = $("sInput").value, q = norm(raw), all = films.filter(isFilm);
+  const list = newest(q ? all.filter(f => contains(f.title, q)) : all);
+  $("sClear").hidden = !raw;
+
+  const word = watchable(raw);
+  $("sCount").innerHTML = !q ? `${all.length.toLocaleString("en-IN")} films`
+    : list.length ? `${list.length} match${list.length === 1 ? "" : "es"}${word ? ` · <a href="#" onclick="watchFromSearch();return false">Watch ${esc(up(word))}</a>` : ""}` : "";
+
+  const start = pager("sPager", "s", list.length, renderSearch);
+  $("sList").innerHTML = list.slice(start, start + PAGE).map(f =>
+    `<div class="row click" tabindex="0" onclick="openSheet('${esc(f.ref)}', this)" onkeydown="if(event.key==='Enter')openSheet('${esc(f.ref)}', this)">
+      <div class="grow"><div class="l1">${esc(f.title)}</div><div class="l2">${f.lang} · ${f.cat} · ${f.len}</div></div><span class="chev">›</span></div>`
+  ).join("") || `<div class="empty">Not certified yet${word ? `<br><button class="btn sm" onclick="watchFromSearch()">Watch ${esc(up(word))}</button>` : ""}</div>`;
+}
+$("sInput").oninput = () => { page.s = 0; renderSearch(); };
+$("sClear").onclick = () => { $("sInput").value = ""; page.s = 0; renderSearch(); $("sInput").focus(); };
+window.watchFromSearch = () => { addKeyword(norm($("sInput").value)); showTab("watch"); };
+
+let sheetFor = null, lastFocus = null;
+window.openSheet = (ref, row) => {
+  const c = films.find(f => f.ref === ref), field = (k, v, cls = "") => `<div class="kv ${cls}"><span>${k}</span><b>${esc(v)}</b></div>`;
+  $("sheetBody").innerHTML = field("Title", c.title, "title")
+    + `<div class="grid c3">${field("Language", c.lang)}${field("Category", c.cat)}${field("Length", c.len)}</div>`
+    + `<div class="grid c2">${field("Certificate no.", c.ref)}${field("When", when(c.date))}</div>`;
+  sheetFor = ref; lastFocus = row;
+  $("sheetBg").classList.add("on"); $("sheetClose").focus();
+};
+function closeSheet() { if (!sheetFor) return; sheetFor = null; $("sheetBg").classList.remove("on"); if (lastFocus) lastFocus.focus(); }
+$("sheetClose").onclick = closeSheet;
+$("sheetBg").onclick = e => { if (e.target === $("sheetBg")) closeSheet(); };
+document.addEventListener("keydown", e => {
+  if (!sheetFor) return;
+  if (e.key === "Escape") closeSheet();
+  if (e.key === "Tab") { e.preventDefault(); $("sheetClose").focus(); }   // focus stays inside the sheet
+});
+
+/* =========================================================
+   Simulator (prototype only)
+   ========================================================= */
+function renderSource() {
+  $("src").textContent = `last updated at ${new Date().toISOString()}\n\n| Title | Language | Category | Length | Ref | When |\n| - | - | - | - | - | - |\n`
+    + newest(films).map(f => `| ${f.title} | ${f.lang} | ${f.cat} | ${f.len} | ${f.ref} | ${when(f.date)} |`).join("\n");
+}
+function renderAll() { renderWatch(); renderSearch(); renderSource(); }
+function viewAs(u) {
+  viewer = u; wError = "";
+  document.querySelectorAll(".viewas button").forEach(b => b.classList.toggle("on", b.dataset.u === u));
+  placeholders(); renderWatch(); renderSearch();
+  log(`viewing as ${u || "logged-out visitor"}${isMod() ? " (mod)" : ""}`);
+}
+document.querySelectorAll(".viewas button").forEach(b => b.onclick = () => viewAs(b.dataset.u));
+
+$("mkPost").onclick = () => { const t = $("newTitle").value.trim() || "CBFC Tracker"; $("postTitle").textContent = t; log(`mod created post "${t}"`); };
+const theme = dark => { document.body.classList.toggle("dark", dark); $("thDark").classList.toggle("fill", dark); $("thLight").classList.toggle("fill", !dark); };
+$("thLight").onclick = () => theme(false);
+$("thDark").onclick = () => theme(true);
+
+$("simEdit").onclick = () => {
+  const fresh = incoming.filter(x => !films.some(f => f.ref === x.ref));
+  log("PostUpdate → read post");
+  if (!fresh.length) return log("no new Ref, nothing to do");
+  for (const x of fresh) {
+    const f = { ...x, date: today, seen: ++clock };
+    films.unshift(f);
+    log(`NEW ${f.ref} ${f.title} ${f.lang}${isFilm(f) ? "" : " (under 1 hour, ignored)"}`);
+    if (isFilm(f)) keywords.filter(k => kwMatch(f.title, k.keyword)).forEach(k => log(`  matches "${k.keyword}"`));
+  }
+  renderAll();
+};
+$("simDaily").onclick = () => {
+  const day = newest(films.filter(f => isFilm(f) && f.seen > 100));        // first seen today
+  $("daily").innerHTML = `<div class="post-head" style="padding:0"><b>r/kerala_boxoffice</b> · Posted by u/cbfc-tracker-app</div>
+    <h1 style="margin:6px 0">CBFC certified – ${today}</h1>
+    <table><tr><th>Title</th><th>Language</th><th>Category</th><th>Length</th></tr>
+    ${day.map(f => `<tr><td>${esc(f.title)}</td><td>${f.lang}</td><td>${f.cat}</td><td>${f.len}</td></tr>`).join("") || `<tr><td colspan="4">No new films today. Click “Add 3 new rows” first.</td></tr>`}</table>`;
+  log(`daily post created (${day.length} films)`);
+};
+
+$("pvEmpty").onclick = () => { keywords = []; viewAs("u/public"); showTab("watch"); };
+$("pvNone").onclick  = () => { viewAs("u/public"); showTab("search"); $("sInput").value = "kgf"; page.s = 0; renderSearch(); };
+$("pvOut").onclick   = () => { viewAs(""); showTab("watch"); };
+$("pvReset").onclick = () => { keywords = seed(); $("sInput").value = ""; page.w = page.s = 0; viewAs("u/you"); showTab("watch"); };
+
+/* =========================================================
+   Start
+   ========================================================= */
+document.querySelector('[data-t="watch"]').innerHTML = ICON.star + "Watchlist";
+document.querySelector('[data-t="search"]').innerHTML = ICON.search + "Search";
+$("sheetClose").innerHTML = $("sClear").innerHTML = ICON.close;
+theme(matchMedia("(prefers-color-scheme: dark)").matches);
+placeholders(); renderAll();
+log("app installed on r/kerala_boxoffice, reading the tracker post");
+</script>
+</body>
+</html>
