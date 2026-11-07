@@ -1,14 +1,14 @@
 import type {IncomingMessage, ServerResponse} from 'node:http'
-import {context, reddit} from '@devvit/web/server'
+import {context, reddit, settings} from '@devvit/web/server'
 import type {PartialJsonValue, UiResponse} from '@devvit/web/shared'
 import {
   Endpoint,
   EndpointMethod,
   type ErrorRsp,
-  type HealthRsp,
+  type MeRsp,
 } from '../shared/api.ts'
 
-type AnyRsp = HealthRsp | UiResponse | ErrorRsp
+type AnyRsp = MeRsp | UiResponse | ErrorRsp
 
 export async function onReq(
   reqMsg: IncomingMessage,
@@ -35,8 +35,8 @@ async function route(
     rsp = {error: 'not found', status: 404}
   } else {
     switch (endpoint) {
-      case Endpoint.Health:
-        rsp = {ok: true, username: context.username ?? null}
+      case Endpoint.Me:
+        rsp = await routeMe()
         break
       case Endpoint.OnMenuNewPost:
         rsp = await routeMenuNewPost()
@@ -51,11 +51,22 @@ async function route(
   writeJson<PartialJsonValue>('status' in rsp ? rsp.status : 200, rsp, rspMsg)
 }
 
-// Phase 2 replaces this with a form so the mod can type any title.
+async function routeMe(): Promise<MeRsp> {
+  const user = await reddit.getCurrentUser()
+  if (!user) return {username: null, isMod: false}
+  const perms = context.subredditName
+    ? await user.getModPermissionsForSubreddit(context.subredditName)
+    : []
+  return {username: user.username, isMod: perms.length > 0}
+}
+
+// "Add CBFC Tracker" (mod menu): the title comes from the subreddit's app settings.
 async function routeMenuNewPost(): Promise<UiResponse> {
-  const post = await reddit.submitCustomPost({title: '🎬 CBFC Tracker'})
+  const title =
+    (await settings.get<string>('postTitle'))?.trim() || '🎬 CBFC Tracker'
+  const post = await reddit.submitCustomPost({title})
   return {
-    showToast: {text: 'Post created', appearance: 'success'},
+    showToast: {text: 'CBFC Tracker added', appearance: 'success'},
     navigateTo: post.url,
   }
 }

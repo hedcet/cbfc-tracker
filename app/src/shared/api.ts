@@ -1,16 +1,16 @@
 /** Generic error detail for all responses. */
 export type ErrorRsp = {error: string; status: number}
 
-/** Health check: proves the post can reach the app server. */
-export type HealthRsp = {ok: true; username: string | null}
+/** Who is looking at the post. */
+export type MeRsp = {username: string | null; isMod: boolean}
 
 export type Endpoint = (typeof Endpoint)[keyof typeof Endpoint]
 export const Endpoint = {
-  Health: 'api/health',
+  Me: 'api/me',
   OnMenuNewPost: 'internal/on/menu/new-post',
 } as const
 
 export const EndpointMethod = {
-  [Endpoint.Health]: 'GET',
+  [Endpoint.Me]: 'GET',
   [Endpoint.OnMenuNewPost]: 'POST',
 } as const satisfies {[endpoint: string]: 'GET' | 'POST'}

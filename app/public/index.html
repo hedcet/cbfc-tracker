@@ -6,36 +6,521 @@
     <title>CBFC Tracker</title>
     <link rel="modulepreload" href="main.js">
     <style>
+    /* tokens: light + dark (follows the device theme) */
+    :root {
+      --radius: 8px;
+      --card: #fff;
+      --ink: #1c1c1c;
+      --mute: #5c6c74;
+      --line: #e5ebee;
+      --chip: #eef1f3;
+      --tonal: #e5ebee;
+      --brand: #ff4500;
+      --brand-soft: #ffe8df;
+      --ok: #0a8a3a;
+      --ok-soft: #e3f5e8;
+      --bad: #d93a00;
+      --bad-soft: #fde5dc;
+      color-scheme: light dark;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --card: #181c1f;
+        --ink: #eef1f3;
+        --mute: #8ba2ad;
+        --line: #2a3236;
+        --chip: #22292d;
+        --tonal: #2a3236;
+        --brand-soft: #3a1a0f;
+        --ok: #3fbf6b;
+        --ok-soft: #14301f;
+        --bad: #ff6a3d;
+        --bad-soft: #3a1a0f;
+      }
+    }
+    * {
+      box-sizing: border-box;
+    }
+    html,
     body {
       margin: 0;
-      height: 100dvh;
+      height: 100%;
       overflow: hidden;
-      display: grid;
-      place-items: center;
+    }
+    body {
       font:
         14px / 1.45 system-ui,
         -apple-system,
         Segoe UI,
         Roboto,
         sans-serif;
+      background: var(--card);
+      color: var(--ink);
     }
-    h1 {
+    button,
+    input {
+      font: inherit;
+      color: inherit;
+    }
+
+    .app {
+      position: relative;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .tabs {
+      display: flex;
+      border-bottom: 1px solid var(--line);
+    }
+    .tabs button {
+      flex: 1;
+      padding: 10px;
+      border: 0;
+      border-bottom: 3px solid transparent;
+      background: none;
+      cursor: pointer;
+      font-weight: 600;
+      color: var(--mute);
+    }
+    .tabs button.on {
+      color: var(--ink);
+      border-color: var(--brand);
+    }
+    .tabs svg {
+      width: 16px;
+      height: 16px;
+      vertical-align: -3px;
+      margin-right: 4px;
+    }
+    .pane {
+      display: none;
+      flex: 1;
+      min-height: 0;
+      flex-direction: column;
+      padding: 12px;
+    }
+    .pane.on {
+      display: flex;
+    }
+
+    .bar {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .inwrap {
+      position: relative;
+      flex: 1;
+      display: flex;
+      min-width: 0;
+    }
+    .input {
+      flex: 1;
+      min-width: 0;
+      height: 34px;
+      padding: 0 34px 0 12px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--card);
+      outline: none;
+      text-overflow: ellipsis;
+    }
+    .input:focus {
+      border-color: var(--brand);
+    }
+    .btn {
+      height: 34px;
+      padding: 0 16px;
+      border: 1px solid var(--brand);
+      border-radius: var(--radius);
+      background: var(--card);
+      color: var(--brand);
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .btn.fill {
+      background: var(--brand);
+      color: #fff;
+    }
+    .btn.sm {
+      height: 28px;
+      padding: 0 12px;
+      font-size: 12px;
+    }
+    .btn:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
+    .count {
+      min-height: 16px;
+      margin: -2px 0 4px 2px;
+      font-size: 12px;
+      color: var(--mute);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .count.err {
+      color: var(--bad);
+    }
+    .count a {
+      color: var(--brand);
+      font-weight: 600;
+      text-decoration: none;
+      cursor: pointer;
+    }
+
+    .list {
+      flex: 1;
+      overflow: hidden;
+    }
+    .row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      height: 50px;
+      padding: 6px 4px;
+      border-bottom: 1px solid var(--line);
+    }
+    .row:last-child {
+      border-bottom: 0;
+    }
+    .row.click {
+      cursor: pointer;
+    }
+    .row.click:hover {
+      background: var(--chip);
+    }
+    .grow {
+      flex: 1;
+      min-width: 0;
+    }
+    .l1,
+    .l2 {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .l1 {
+      font-weight: 600;
+    }
+    .l2 {
+      font-size: 12px;
+      color: var(--mute);
+    }
+    .chev {
+      color: var(--mute);
       font-size: 18px;
-      margin: 0 0 6px;
-      text-align: center;
+      padding: 0 4px;
     }
-    p {
-      margin: 0;
-      color: #5c6c74;
+    .chip {
+      margin-left: 8px;
+      padding: 1px 8px;
+      border-radius: var(--radius);
+      background: var(--ok-soft);
+      color: var(--ok);
+      font-size: 12.5px;
+      cursor: pointer;
+    }
+    .empty {
+      padding: 20px 4px;
       text-align: center;
+      color: var(--mute);
+    }
+    .empty .btn {
+      margin-top: 10px;
+    }
+
+    .acts {
+      display: inline-flex;
+      flex: none;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    .icon {
+      display: inline-grid;
+      place-items: center;
+      width: 32px;
+      height: 28px;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      color: var(--mute);
+      cursor: pointer;
+    }
+    .icon + .icon {
+      border-left: 1px solid var(--line);
+    }
+    .icon svg {
+      width: 16px;
+      height: 16px;
+    }
+    .icon:hover {
+      background: var(--tonal);
+      color: var(--ink);
+    }
+    .icon:disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+    }
+    .icon.bell.on {
+      background: var(--brand-soft);
+      color: var(--brand);
+    }
+    .icon.del:hover {
+      background: var(--bad-soft);
+      color: var(--bad);
+    }
+    .icon.ok.on {
+      background: var(--ok-soft);
+      color: var(--ok);
+    }
+    .icon.round {
+      width: 30px;
+      height: 30px;
+      border-radius: var(--radius);
+    }
+    .clear {
+      position: absolute;
+      right: 3px;
+      top: 2px;
+    }
+
+    .pager {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 10px;
+      padding-top: 8px;
+      border-top: 1px solid var(--line);
+      font-size: 12px;
+      color: var(--mute);
+    }
+
+    .toast {
+      position: absolute;
+      left: 12px;
+      right: 12px;
+      bottom: 8px;
+      z-index: 6;
+      display: none;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 12px;
+      border-radius: var(--radius);
+      background: #1c1c1c;
+      color: #fff;
+      font-size: 13px;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+    }
+    .toast.on {
+      display: flex;
+    }
+    .toast span {
+      flex: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .toast button {
+      border: 0;
+      background: none;
+      color: #ff8a5c;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .sheet-bg {
+      position: absolute;
+      inset: 0;
+      z-index: 5;
+      display: none;
+      align-items: flex-end;
+      background: rgba(0, 0, 0, 0.45);
+    }
+    .sheet-bg.on {
+      display: flex;
+    }
+    .sheet {
+      width: 100%;
+      max-height: 100%;
+      padding: 6px 16px 10px;
+      border-radius: 16px 16px 0 0;
+      background: var(--card);
+      animation: up 0.18s ease-out;
+    }
+    @keyframes up {
+      from {
+        transform: translateY(40px);
+        opacity: 0.5;
+      }
+      to {
+        transform: none;
+        opacity: 1;
+      }
+    }
+    .grab {
+      width: 40px;
+      height: 4px;
+      margin: 2px auto 8px;
+      border-radius: 2px;
+      background: var(--line);
+    }
+    .sheet-head {
+      display: flex;
+      align-items: center;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--line);
+    }
+    .sheet-head h3 {
+      flex: 1;
+      margin: 0;
+      font-size: 17px;
+    }
+    .kv {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+      padding: 5px 0;
+      border-bottom: 1px solid var(--line);
+      font-size: 13px;
+    }
+    .kv span {
+      color: var(--mute);
+    }
+    .kv b {
+      font-weight: 600;
+      overflow-wrap: anywhere;
+    }
+    .kv.title b {
+      font-size: 14px;
+      line-height: 1.3;
+    }
+    .grid {
+      display: grid;
+      column-gap: 16px;
+      border-bottom: 1px solid var(--line);
+    }
+    .grid .kv {
+      border-bottom: 0;
+    }
+    .grid.c3 {
+      grid-template-columns: repeat(3, 1fr);
+    }
+    .grid.c2 {
+      grid-template-columns: repeat(2, 1fr);
+      border-bottom: 0;
+    }
+    .demo {
+      position: absolute;
+      bottom: 20px;
+      left: 12px;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      color: var(--mute);
+      pointer-events: none;
+    }
+    @media (prefers-color-scheme: dark) {
+      .toast {
+        background: var(--ink);
+        color: var(--card);
+      }
+      .toast button {
+        color: var(--brand);
+      }
+    }
+    /* last, so it wins over display rules above */
+    [hidden] {
+      display: none;
     }
     </style>
   </head>
   <body>
-    <main>
-      <h1>🎬 CBFC Tracker</h1>
-      <p id="status">Connecting…</p>
-    </main>
+    <div class="app">
+      <div class="tabs" role="tablist">
+        <button
+          type="button"
+          role="tab"
+          data-tab="watch"
+          class="on"
+          aria-selected="true"
+          aria-controls="watch"
+        ></button>
+        <button
+          type="button"
+          role="tab"
+          data-tab="search"
+          aria-selected="false"
+          aria-controls="search"
+        ></button>
+      </div>
+      <span class="demo">DEMO DATA</span>
+
+      <div class="pane on" id="watch" role="tabpanel">
+        <div class="bar">
+          <input id="wInput" class="input" type="text" aria-label="Film name">
+          <button class="btn fill" id="wAdd" type="button">Add</button>
+        </div>
+        <div class="count" id="wCount" aria-live="polite"></div>
+        <div class="list" id="wList"></div>
+        <div class="pager" id="wPager"></div>
+      </div>
+
+      <div class="pane" id="search" role="tabpanel">
+        <div class="bar">
+          <div class="inwrap">
+            <input
+              id="sInput"
+              class="input"
+              type="text"
+              aria-label="Search films"
+            >
+            <button
+              class="icon round clear"
+              id="sClear"
+              type="button"
+              aria-label="Clear search"
+              hidden
+            ></button>
+          </div>
+        </div>
+        <div class="count" id="sCount" aria-live="polite"></div>
+        <div class="list" id="sList"></div>
+        <div class="pager" id="sPager"></div>
+      </div>
+
+      <div class="sheet-bg" id="sheetBg">
+        <div
+          class="sheet"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="sheetTitle"
+        >
+          <div class="grab"></div>
+          <div class="sheet-head">
+            <h3 id="sheetTitle">CBFC certificate</h3>
+            <button
+              class="icon round"
+              id="sheetClose"
+              type="button"
+              aria-label="Close"
+            ></button>
+          </div>
+          <div id="sheetBody"></div>
+        </div>
+      </div>
+
+      <div class="toast" id="toast" role="status">
+        <span id="toastMsg"></span
+        ><button id="toastUndo" type="button">Undo</button>
+      </div>
+    </div>
     <script src="main.js" type="module"></script>
   </body>
 </html>

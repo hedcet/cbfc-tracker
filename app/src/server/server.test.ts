@@ -2,19 +2,25 @@ import assert from 'node:assert/strict'
 import {createServer} from 'node:http'
 import type {AddressInfo, Server} from 'node:net'
 import {after, before, test} from 'node:test'
-import {type Context, runWithContext} from '@devvit/web/server'
-import {Endpoint, type ErrorRsp, type HealthRsp} from '../shared/api.ts'
+import {type Context, reddit, runWithContext} from '@devvit/web/server'
+import {Endpoint, type ErrorRsp, type MeRsp} from '../shared/api.ts'
 import {onReq} from './server.ts'
 
 let server: Server
 let serverURL: string
 
 before(async () => {
+  reddit.getCurrentUser = async () =>
+    ({
+      username: 'username',
+      getModPermissionsForSubreddit: async () => ['all'],
+    }) as never
   server = createServer(async (req, rsp) => {
     await runWithContext(
       {
         appName: 'cbfc-tracker',
         postId: 't3_123',
+        subredditName: 'cbfc_tracker_dev',
         userId: 't2_123',
         username: 'username',
       } as unknown as Context,
@@ -35,17 +41,14 @@ after(async () => {
   })
 })
 
-test('health', async () => {
-  const rsp = await fetch(`${serverURL}/${Endpoint.Health}`)
+test('me', async () => {
+  const rsp = await fetch(`${serverURL}/${Endpoint.Me}`)
   assert.equal(rsp.status, 200)
-  assert.deepEqual<HealthRsp>(await rsp.json(), {
-    ok: true,
-    username: 'username',
-  })
+  assert.deepEqual<MeRsp>(await rsp.json(), {username: 'username', isMod: true})
 })
 
 test('wrong method', async () => {
-  const rsp = await fetch(`${serverURL}/${Endpoint.Health}`, {method: 'POST'})
+  const rsp = await fetch(`${serverURL}/${Endpoint.Me}`, {method: 'POST'})
   assert.equal(rsp.status, 404)
   assert.deepEqual<ErrorRsp>(await rsp.json(), {
     error: 'not found',

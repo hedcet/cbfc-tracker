@@ -14,11 +14,37 @@
     "redis": true,
     "reddit": true
   },
+  "settings": {
+    "subreddit": {
+      "postTitle": {
+        "type": "string",
+        "label": "Tracker title (shown on the CBFC Tracker post)",
+        "defaultValue": "🎬 CBFC Tracker"
+      },
+      "dailyPostTime": {
+        "type": "select",
+        "label": "Daily post time (IST)",
+        "options": [
+          {"label": "Off", "value": "off"},
+          {"label": "21:00", "value": "21:00"},
+          {"label": "22:00", "value": "22:00"},
+          {"label": "23:00", "value": "23:00"},
+          {"label": "23:30", "value": "23:30"}
+        ],
+        "defaultValue": "23:30"
+      },
+      "trackerPost": {
+        "type": "string",
+        "label": "Tracker post written by cbfc.js (link or ID)",
+        "defaultValue": ""
+      }
+    }
+  },
   "menu": {
     "items": [
       {
-        "label": "Create CBFC Tracker post",
-        "description": "Create the CBFC Tracker post in this subreddit.",
+        "label": "Add CBFC Tracker",
+        "description": "Add the CBFC Tracker tool (Watchlist + Search) to this subreddit, using the title from the app settings.",
         "location": "subreddit",
         "forUserType": "moderator",
         "endpoint": "/internal/on/menu/new-post"
@@ -30,8 +56,5 @@
   },
   "scripts": {
     "dev": "npm run watch"
-  },
-  "dev": {
-    "subreddit": "cbfc_tracker_dev"
   }
 }
