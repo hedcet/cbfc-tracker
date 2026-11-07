@@ -25,7 +25,13 @@
       }
     ]
   },
+  "dev": {
+    "subreddit": "cbfc_tracker_dev"
+  },
   "scripts": {
     "dev": "npm run watch"
+  },
+  "dev": {
+    "subreddit": "cbfc_tracker_dev"
   }
 }
