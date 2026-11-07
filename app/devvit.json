@@ -1,0 +1,31 @@
+{
+  "$schema": "https://developers.reddit.com/schema/config-file.v1.json",
+  "name": "cbfc-tracker",
+  "post": {
+    "entrypoints": {
+      "default": {
+        "entry": "index.html",
+        "height": "tall"
+      }
+    }
+  },
+  "server": {},
+  "permissions": {
+    "redis": true,
+    "reddit": true
+  },
+  "menu": {
+    "items": [
+      {
+        "label": "Create CBFC Tracker post",
+        "description": "Create the CBFC Tracker post in this subreddit.",
+        "location": "subreddit",
+        "forUserType": "moderator",
+        "endpoint": "/internal/on/menu/new-post"
+      }
+    ]
+  },
+  "scripts": {
+    "dev": "npm run watch"
+  }
+}

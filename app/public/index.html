@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>CBFC Tracker</title>
+    <link rel="modulepreload" href="main.js">
+    <style>
+    body {
+      margin: 0;
+      height: 100dvh;
+      overflow: hidden;
+      display: grid;
+      place-items: center;
+      font:
+        14px / 1.45 system-ui,
+        -apple-system,
+        Segoe UI,
+        Roboto,
+        sans-serif;
+    }
+    h1 {
+      font-size: 18px;
+      margin: 0 0 6px;
+      text-align: center;
+    }
+    p {
+      margin: 0;
+      color: #5c6c74;
+      text-align: center;
+    }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>🎬 CBFC Tracker</h1>
+      <p id="status">Connecting…</p>
+    </main>
+    <script src="main.js" type="module"></script>
+  </body>
+</html>
