@@ -12,9 +12,9 @@ Built for [r/kerala_boxoffice](https://www.reddit.com/r/kerala_boxoffice/). It w
 
 ## Screens
 
-| Search (opens first)       | Certificate                          | Watchlist                        |
-| -------------------------- | ------------------------------------ | -------------------------------- |
-| ![Search](docs/search.png) | ![Certificate](docs/certificate.png) | ![Watchlist](docs/watchlist.png) |
+| Search (opens first)                                                                   | Certificate                                                                                      | Watchlist                                                                                    |
+| -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------- |
+| ![Search](https://raw.githubusercontent.com/hedcet/cbfc/master/reddit/docs/search.png) | ![Certificate](https://raw.githubusercontent.com/hedcet/cbfc/master/reddit/docs/certificate.png) | ![Watchlist](https://raw.githubusercontent.com/hedcet/cbfc/master/reddit/docs/watchlist.png) |
 
 **Search** works for everyone, from the first letter typed. It shows the total, like "12,345 films", with an empty box, and "N matches · Watch X" while you type. Tap a row to open its certificate.
 
