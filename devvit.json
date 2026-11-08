@@ -19,7 +19,7 @@
       "postTitle": {
         "type": "string",
         "label": "Title",
-        "helpText": "Title for new tracker posts",
+        "helpText": "Shown as the post title",
         "defaultValue": "🎬 CBFC Certificates: Search & Watchlist (Unofficial)"
       },
       "archive": {
@@ -39,7 +39,7 @@
       "initialData": {
         "type": "paragraph",
         "label": "Initial data (JSON)",
-        "helpText": "Older certificates; clear after import",
+        "helpText": "One-time import; clear after",
         "defaultValue": "",
         "validationEndpoint": "/internal/settings/initial-data"
       }
@@ -49,14 +49,14 @@
     "items": [
       {
         "label": "Add CBFC Tracker",
-        "description": "CBFC search and watchlist",
+        "description": "Open or create tracker",
         "location": "subreddit",
         "forUserType": "moderator",
         "endpoint": "/internal/on/menu/new-post"
       },
       {
         "label": "Sync CBFC data",
-        "description": "Read the source post now",
+        "description": "Check for new certificates",
         "location": "subreddit",
         "forUserType": "moderator",
         "endpoint": "/internal/on/menu/sync"
