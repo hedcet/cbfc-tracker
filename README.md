@@ -67,7 +67,7 @@ A JSON list in the same shape the app reads from the source post:
 ]
 ```
 
-`length` uses the CBFC portal format MM.SS (`120.07` = 2h 0m 7s).
+`length` uses the CBFC portal format MM.SS (`120.07` = 2h 7s).
 
 ## Develop
 
