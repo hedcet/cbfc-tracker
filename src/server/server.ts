@@ -69,9 +69,6 @@ async function route(
       case Endpoint.OnMenuNewPost:
         rsp = await routeMenuNewPost()
         break
-      case Endpoint.OnMenuSync:
-        rsp = await routeMenuSync()
-        break
       case Endpoint.OnPostUpdate:
         rsp = await routePostUpdate(await readJson(reqMsg))
         break
@@ -133,20 +130,6 @@ async function routeMenuNewPost(): Promise<UiResponse> {
   return {
     navigateTo: post.url,
     showToast: {appearance: 'success', text: 'CBFC Tracker added'},
-  }
-}
-
-// "Sync CBFC data" (mod menu): read the source post now.
-async function routeMenuSync(): Promise<UiResponse> {
-  await importSetting()
-  const s = await syncSource()
-  return {
-    showToast: s.error
-      ? {appearance: 'neutral', text: s.error}
-      : {
-          appearance: 'success',
-          text: `${s.total.toLocaleString('en-IN')} films · ${s.added} new`,
-        },
   }
 }
 

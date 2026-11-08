@@ -11,13 +11,6 @@
         "forUserType": "moderator",
         "label": "Add CBFC Tracker",
         "location": "subreddit"
-      },
-      {
-        "description": "Check for new certificates",
-        "endpoint": "/internal/on/menu/sync",
-        "forUserType": "moderator",
-        "label": "Sync CBFC data",
-        "location": "subreddit"
       }
     ]
   },

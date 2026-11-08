@@ -13,13 +13,13 @@ Reddit (Devvit) app for following Indian CBFC film certificates. Built for [r/ke
 
 1. Install from [developers.reddit.com/apps/cbfc-tracker](https://developers.reddit.com/apps/cbfc-tracker).
 2. Set the app settings (below).
-3. Mod menu → **Add CBFC Tracker** creates the post. **Sync CBFC data** reads the source now.
+3. Mod menu → **Add CBFC Tracker** creates the post.
 
 | Setting             | Purpose                                                                                                                                     |
 | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
 | Title               | Title of the tracker post                                                                                                                   |
 | Source post ID      | Post (e.g. `1abc2de`) with a `\| Title \| Language \| Category \| Length \| Ref \| When \|` table; read every 15 min and on edit. Optional. |
-| Initial data (JSON) | One-time import, imported at next sync; clear after.                                                                                        |
+| Initial data (JSON) | One-time import, imported within 15 min; clear after.                                                                                       |
 
 Initial data is a JSON list:
 
