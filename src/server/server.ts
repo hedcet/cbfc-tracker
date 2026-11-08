@@ -8,7 +8,7 @@ import {
   type ErrorRsp,
   type MeRsp,
 } from '../shared/api.ts'
-import {postId} from './certs.ts'
+import {parseTable, postId} from './certs.ts'
 import {allCerts, importJson, syncSource} from './store.ts'
 
 type ValidationRsp = {success: boolean; error?: string}
@@ -129,15 +129,22 @@ async function routePostUpdate(body: unknown): Promise<EmptyRsp> {
 
 async function validateSourcePost(body: unknown): Promise<ValidationRsp> {
   const value = String((body as {value?: unknown}).value ?? '').trim()
-  if (!value) return {success: true}
+  if (!value)
+    return {
+      success: false,
+      error: 'Add the tracker post link to get new certificates',
+    }
   const id = postId(value)
   if (!id) return {success: false, error: 'Use a post link or ID'}
+  let text = ''
   try {
-    await reddit.getPostById(id as `t3_${string}`)
-    return {success: true}
+    text = (await reddit.getPostById(id as `t3_${string}`)).body ?? ''
   } catch {
     return {success: false, error: 'Post not found'}
   }
+  if (!parseTable(text).length)
+    return {success: false, error: 'No certificate table in this post'}
+  return {success: true}
 }
 
 // Initial data is imported when the settings are saved; Ref decides duplicates.

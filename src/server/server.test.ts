@@ -150,3 +150,31 @@ test('sync reads the source post; films only', async () => {
     'TVM/1/45/2026',
   ])
 })
+
+test('source post: errors show in settings', async () => {
+  const check = async (value: string): Promise<unknown> =>
+    (await post(Endpoint.ValidateSourcePost, {value})).json()
+  assert.deepEqual(await check(''), {
+    success: false,
+    error: 'Add the tracker post link to get new certificates',
+  })
+  assert.deepEqual(await check('not a post'), {
+    success: false,
+    error: 'Use a post link or ID',
+  })
+  assert.deepEqual(await check('t3_src'), {success: true})
+  const real = reddit.getPostById
+  reddit.getPostById = async () => ({body: 'hello'}) as never
+  assert.deepEqual(await check('t3_src'), {
+    success: false,
+    error: 'No certificate table in this post',
+  })
+  reddit.getPostById = async () => {
+    throw new Error('404')
+  }
+  assert.deepEqual(await check('t3_src'), {
+    success: false,
+    error: 'Post not found',
+  })
+  reddit.getPostById = real
+})
