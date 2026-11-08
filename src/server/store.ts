@@ -88,7 +88,8 @@ export async function syncSource(): Promise<SyncInfo> {
       const post = await reddit.getPostById(id as `t3_${string}`)
       const rows = parseTable(post.body ?? '')
       if (!rows.length) error = 'No certificate table in the source post'
-      else added = await addCerts(rows, false)
+      // the post is newest first: add oldest first so the newest gets the highest seq
+      else added = await addCerts(rows.reverse(), false)
     } catch (err) {
       console.error(err)
       error = 'Source post not found'
