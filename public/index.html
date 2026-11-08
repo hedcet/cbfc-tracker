@@ -305,39 +305,6 @@
       color: var(--mute);
     }
 
-    .toast {
-      position: absolute;
-      left: 12px;
-      right: 12px;
-      bottom: 8px;
-      z-index: 6;
-      display: none;
-      align-items: center;
-      gap: 10px;
-      padding: 9px 12px;
-      border-radius: var(--radius);
-      background: #1c1c1c;
-      color: #fff;
-      font-size: 13px;
-      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
-    }
-    .toast.on {
-      display: flex;
-    }
-    .toast span {
-      flex: 1;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .toast button {
-      border: 0;
-      background: none;
-      color: #ff8a5c;
-      font-weight: 700;
-      cursor: pointer;
-    }
-
     .sheet-bg {
       position: absolute;
       inset: 0;
@@ -429,15 +396,6 @@
       color: var(--mute);
       pointer-events: none;
     }
-    @media (prefers-color-scheme: dark) {
-      .toast {
-        background: var(--ink);
-        color: var(--card);
-      }
-      .toast button {
-        color: var(--brand);
-      }
-    }
     /* last, so it wins over display rules above */
     [hidden] {
       display: none;
@@ -517,11 +475,6 @@
           </div>
           <div id="sheetBody"></div>
         </div>
-      </div>
-
-      <div class="toast" id="toast" role="status">
-        <span id="toastMsg"></span
-        ><button id="toastUndo" type="button">Undo</button>
       </div>
     </div>
     <script src="main.js" type="module"></script>

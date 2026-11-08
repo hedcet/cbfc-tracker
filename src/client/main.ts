@@ -1,3 +1,4 @@
+import {showToast} from '@devvit/web/client'
 import {
   type CertRow,
   Endpoint,
@@ -164,25 +165,8 @@ function pager(
   return page[key] * PAGE
 }
 
-let toastTimer: ReturnType<typeof setTimeout> | undefined
-let undoFn: (() => void) | null = null
-function toast(msg: string, undo?: () => void): void {
-  $('toastMsg').textContent = msg
-  undoFn = undo ?? null
-  $('toastUndo').hidden = !undo
-  $('toast').classList.add('on')
-  clearTimeout(toastTimer)
-  toastTimer = setTimeout(() => {
-    $('toast').classList.remove('on')
-    undoFn = null
-  }, 4000)
-}
-$('toastUndo').onclick = () => {
-  const fn = undoFn
-  undoFn = null
-  $('toast').classList.remove('on')
-  fn?.()
-}
+// Reddit's own toast
+const toast = (msg: string): void => showToast(msg)
 
 function placeholders(): void {
   const pick = (): string =>
@@ -256,7 +240,7 @@ function renderWatch(): void {
         const n = newCount(k)
         const owner = k.owner === viewer
         const chip = n
-          ? `<span class="chip" title="Show matches" data-act="search-for" data-id="${k.id}">${n} new ›</span>`
+          ? `<span class="chip" role="button" tabindex="0" title="Show matches" data-act="search-for" data-id="${k.id}">${n} new ›</span>`
           : ''
         const line2 = `${followerCount(k)} follower${followerCount(k) === 1 ? '' : 's'}${owner ? ' · yours' : isMod ? ` · added by ${k.owner}` : ''}`
         const label = on ? 'Unfollow' : 'Follow'
@@ -327,7 +311,6 @@ function follow(k: Keyword): void {
 
 // stop following; ownership passes to the earliest follower; deleted only when nobody follows
 function leave(k: Keyword): void {
-  const before = {owner: k.owner, subs: {...k.subs}}
   const index = keywords.indexOf(k)
   const wasOwner = k.owner === viewer
   delete k.subs[viewer]
@@ -336,14 +319,7 @@ function leave(k: Keyword): void {
   if (!first) keywords.splice(index, 1)
   else if (wasOwner) k.owner = first[0]
   // "Removed" only when it is really gone; otherwise it stays with the others
-  toast(`${first ? 'Unfollowed' : 'Removed'} ${up(k.keyword)}`, () => {
-    if (atLimit()) return toast(`You can follow ${MAX_FOLLOW} for now`)
-    Object.assign(k, before)
-    if (!keywords.includes(k)) keywords.splice(index, 0, k)
-    renderWatch()
-    renderSearch()
-    void loadNew()
-  })
+  toast(`${first ? 'Unfollowed' : 'Removed'} ${up(k.keyword)}`)
   renderWatch()
   renderSearch()
 }
@@ -366,7 +342,7 @@ function renderSearch(): void {
     !q || certsState !== 'ready'
       ? totalLine(total)
       : total
-        ? `${total} match${total === 1 ? '' : 'es'}${word ? ` · <a data-act="watch">Watch ${esc(up(word))}</a>` : ''}`
+        ? `${total} match${total === 1 ? '' : 'es'}${word ? ` · <a role="button" tabindex="0" data-act="watch">Watch ${esc(up(word))}</a>` : ''}`
         : ''
 
   pager('sPager', 's', total, () => void loadSearch())
@@ -374,7 +350,7 @@ function renderSearch(): void {
     films
       .map(
         f =>
-          `<div class="row click" tabindex="0" data-act="sheet" data-ref="${esc(f.ref)}"><div class="grow"><div class="l1">${esc(f.title)}</div><div class="l2">${esc(`${f.lang} · ${f.cat} · ${f.len}`)}</div></div><span class="chev">›</span></div>`,
+          `<div class="row click" role="button" tabindex="0" data-act="sheet" data-ref="${esc(f.ref)}"><div class="grow"><div class="l1">${esc(f.title)}</div><div class="l2">${esc(`${f.lang} · ${f.cat} · ${f.len}`)}</div></div><span class="chev">›</span></div>`,
       )
       .join('') ||
     (!q
@@ -386,7 +362,7 @@ function renderSearch(): void {
 function totalLine(n: number): string {
   if (certsState === 'loading') return 'Loading…'
   if (certsState === 'error')
-    return '<span class="err-text">Couldn’t load films</span> · <a data-act="retry">Retry</a>'
+    return '<span class="err-text">Couldn’t load films</span> · <a role="button" tabindex="0" data-act="retry">Retry</a>'
   return n ? `${n.toLocaleString('en-IN')} films` : 'No films yet'
 }
 
@@ -456,8 +432,15 @@ document.addEventListener('click', ev => {
 })
 document.addEventListener('keydown', ev => {
   const el = ev.target as HTMLElement
-  if (ev.key === 'Enter' && el.dataset.act === 'sheet' && el.dataset.ref)
-    openSheet(el.dataset.ref, el)
+  // rows, links and chips act like buttons: Enter or Space
+  if (
+    (ev.key === 'Enter' || ev.key === ' ') &&
+    el.getAttribute('role') === 'button' &&
+    el.dataset.act
+  ) {
+    ev.preventDefault()
+    el.click()
+  }
   if (!sheetOpen) return
   if (ev.key === 'Escape') closeSheet()
   if (ev.key === 'Tab') {
