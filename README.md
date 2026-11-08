@@ -23,6 +23,7 @@ Reddit (Devvit) app for following Indian CBFC film certificates. Built for [r/ke
 | Title               | Title of the tracker post                                                                                    |
 | Source post ID      | Post (e.g. `1abc2de`) with a `\| Title \| Language \| Category \| Length \| Ref \| When \|` table. Optional. |
 | Initial data (JSON) | One-time import of older certificates, imported on save; clear after.                                        |
+| Daily archive post  | Every day at 00:00 IST, one post with all new certificates (off by default).                                 |
 
 The source post is read:
 
@@ -46,7 +47,7 @@ Initial data is a JSON list:
 ]
 ```
 
-Only films (≥ 1 hour, not future-dated) are kept; certificates are deduplicated by `ref`.
+Certificates are deduplicated by `ref`; future-dated ones are skipped. Search, the Watchlist and alerts show films (1 hour or longer); the daily archive post lists every item, including ads and trailers. Imported data counts as already posted.
 
 ## Develop
 
@@ -59,4 +60,4 @@ npm run playtest  # live on r/cbfc_tracker_dev
 npm run upload    # publish a new version
 ```
 
-`src/client` page code · `src/server` app server (`certs.ts` parses, `store.ts` stores certificates, `watch.ts` keywords and alerts) · `src/shared/api.ts` shared types · `public/index.html` page.
+`src/client` page code · `src/server` app server (`certs.ts` parses, `store.ts` stores certificates, `watch.ts` keywords and alerts, `archive.ts` the daily post) · `src/shared/api.ts` shared types · `public/index.html` page.

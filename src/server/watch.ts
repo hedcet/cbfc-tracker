@@ -12,7 +12,7 @@ import {
   type WatchActRsp,
   type WatchReq,
 } from '../shared/api.ts'
-import type {Cert} from './certs.ts'
+import {type Cert, isFilm} from './certs.ts'
 import {freshCounts, lastSeq} from './store.ts'
 
 // Redis layout
@@ -348,7 +348,8 @@ async function note(user: string, word: string, state: State): Promise<void> {
 }
 
 /** New certificates: queue them; a background job sends the alerts (nobody waits). */
-export async function notifyNew(added: Cert[]): Promise<void> {
+export async function notifyNew(all: Cert[]): Promise<void> {
+  const added = all.filter(c => isFilm(c.secs)) // alerts are for films only
   if (!added.length) return
   try {
     await redis.hSet(

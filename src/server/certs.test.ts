@@ -86,7 +86,7 @@ test('valid: films only, no future dates', () => {
     title: 'T',
   }
   assert.ok(isValid(c, '2026-11-08'))
-  assert.ok(!isValid({...c, secs: 3599}, '2026-11-08'))
+  assert.ok(isValid({...c, secs: 28}, '2026-11-08')) // short items are kept too
   assert.ok(!isValid({...c, date: '2038-10-07'}, '2026-11-08'))
   assert.ok(!isValid({...c, date: 'soon'}, '2026-11-08'))
 })

@@ -11,6 +11,13 @@
         "forUserType": "moderator",
         "label": "Add CBFC Tracker",
         "location": "subreddit"
+      },
+      {
+        "description": "Temporary: posts the daily archive as it would be now",
+        "endpoint": "/internal/on/menu/preview-archive",
+        "forUserType": "moderator",
+        "label": "Preview archive post",
+        "location": "subreddit"
       }
     ]
   },
@@ -32,6 +39,10 @@
       "alerts": {
         "endpoint": "/internal/scheduler/alerts"
       },
+      "archive": {
+        "cron": "30 18 * * *",
+        "endpoint": "/internal/scheduler/archive"
+      },
       "sync": {
         "cron": "0 * * * *",
         "endpoint": "/internal/scheduler/sync"
@@ -44,6 +55,12 @@
   "server": {},
   "settings": {
     "subreddit": {
+      "archivePost": {
+        "defaultValue": false,
+        "helpText": "Every day at 00:00 IST: one post with all new certificates",
+        "label": "Daily archive post",
+        "type": "boolean"
+      },
       "initialData": {
         "defaultValue": "",
         "helpText": "One-time import on save; clear after",

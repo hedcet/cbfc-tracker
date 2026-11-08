@@ -9,6 +9,7 @@ import {
 } from '../shared/api.ts'
 import {
   type Cert,
+  isFilm,
   isValid,
   parseJson,
   parseTable,
@@ -17,7 +18,8 @@ import {
 } from './certs.ts'
 
 // Redis layout
-//   certs      hash  ref → JSON [title, language, category, secs, date, seq, archived 0|1]
+//   certs      hash  ref → JSON [title, language, category, secs, date, seq, posted 0|1]
+//              (every item; search and the watchlist use films only)
 //   certs:seq  int   order in which certificates were first seen
 //   certs:ver  int   bumped on every add; the search cache reloads when it changes
 //   import     str   hash of the initial data last imported
@@ -72,14 +74,50 @@ async function addCerts(list: Cert[], archived: boolean): Promise<Cert[]> {
   return added
 }
 
+// films only: search and "N new"
 async function allCerts(): Promise<CertRow[]> {
   const all = await redis.hGetAll(CERTS)
-  return Object.entries(all).map(([ref, json]) => {
+  return Object.entries(all).flatMap(([ref, json]) => {
     const [title, language, category, secs, date, seq] = JSON.parse(
       json,
     ) as Stored
-    return [ref, title, language, category, secs, date, seq]
+    return isFilm(secs)
+      ? [[ref, title, language, category, secs, date, seq]]
+      : []
   })
+}
+
+/** Items not in a daily post yet, in the source post's order (newest first). */
+export async function unposted(): Promise<Cert[]> {
+  return Object.entries(await redis.hGetAll(CERTS))
+    .map(([ref, json]) => [ref, JSON.parse(json) as Stored] as const)
+    .filter(([, s]) => !s[6])
+    .sort((a, b) => b[1][5] - a[1][5])
+    .map(([ref, [title, language, category, secs, date]]) => ({
+      category,
+      date,
+      language,
+      ref,
+      secs,
+      title,
+    }))
+}
+
+/** Marks items as posted in a daily post. */
+export async function markPosted(refs: string[]): Promise<void> {
+  for (let i = 0; i < refs.length; i += BATCH) {
+    const chunk = refs.slice(i, i + BATCH)
+    const rows = await redis.hMGet(CERTS, chunk)
+    const fields: Record<string, string> = {}
+    chunk.forEach((ref, j) => {
+      const json = rows[j]
+      if (!json) return
+      const s = JSON.parse(json) as Stored
+      s[6] = 1
+      fields[ref] = JSON.stringify(s)
+    })
+    if (Object.keys(fields).length) await redis.hSet(CERTS, fields)
+  }
 }
 
 // all certificates, newest first, with normalized titles; reloaded only after an add

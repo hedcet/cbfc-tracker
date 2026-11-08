@@ -11,7 +11,9 @@ export type Cert = {
 }
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/
-const MIN_SECS = 3600 // films only: 1 hour or more
+// films: 1 hour or more (search, watchlist, alerts); the daily post has every item
+const FILM_SECS = 3600
+export const isFilm = (secs: number): boolean => secs >= FILM_SECS
 
 /** "2h 7s", "2h 33m 2s" (source post) or "120.07" (CBFC portal MM.SS) → seconds. */
 export function parseLength(text: string): number {
@@ -31,13 +33,9 @@ export function parseLength(text: string): number {
 export const todayIST = (now = new Date()): string =>
   now.toLocaleDateString('en-CA', {timeZone: 'Asia/Kolkata'})
 
-/** Keep films only (1 hour or more) with a sane date (not in the future). */
+/** Keep items with a ref, a title and a sane date (not in the future). */
 export const isValid = (c: Cert, today: string): boolean =>
-  !!c.ref &&
-  !!c.title &&
-  DATE.test(c.date) &&
-  c.date <= today &&
-  c.secs >= MIN_SECS
+  !!c.ref && !!c.title && DATE.test(c.date) && c.date <= today
 
 // split a table row on unescaped pipes, then unescape \[ \] \|
 function cells(line: string): string[] {

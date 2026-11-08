@@ -80,10 +80,23 @@ const sourcePost = `| Title | Language | Category | Length | Ref | When |
 | DRISHYAM 3 | Malayalam | UA 13+ | 2h 33m 2s | TVM/1/45/2026 | 2026-11-06 D2 |
 | A TRAILER | Tamil | U | 2m 10s | TRL/1/1/2026 | 2026-11-06 D2 |`
 let initialData = ''
+let archiveOn = false
 Object.assign(settings, {
   get: async (k: string) =>
-    k === 'trackerPost' ? 't3_src' : k === 'initialData' ? initialData : '',
+    k === 'trackerPost'
+      ? 't3_src'
+      : k === 'initialData'
+        ? initialData
+        : k === 'archivePost'
+          ? archiveOn
+          : '',
 })
+// daily archive posts, recorded
+const posts: {text: string; title: string}[] = []
+reddit.submitPost = (async (o: {text: string; title: string}) => {
+  posts.push(o)
+  return {id: 't3_arch'}
+}) as never
 reddit.getPostById = async () => ({body: sourcePost}) as never
 
 // modmail: one conversation per user, every message recorded
@@ -201,7 +214,7 @@ test('initial data: checked and imported on save, only once', async () => {
   await post(Endpoint.ValidateInitialData, {value: data}) // same text again
   initialData = data
   await post(Endpoint.OnSchedulerSync, {}) // and the hourly sync
-  assert.equal(hash('certs').size, 2) // + 1 from the source post; no duplicates
+  assert.equal(hash('certs').size, 3) // + 2 from the source post (film, trailer); no duplicates
 })
 
 test('initial data: bad JSON is refused with a message', async () => {
@@ -504,6 +517,50 @@ test('alerts: at most 5 keywords in a heading', async () => {
     sent.filter(m => m.to === 'hal').at(-1)?.body ?? '',
     /^\*\*KALAM, KALARI, KALAVU, KALKI, KALPANA \+1 more: 1 new certificate\*\*/,
   )
+})
+
+test('archive: one post a day with every new item, then marked posted', async () => {
+  await post(Endpoint.OnSchedulerArchive, {}) // switched off: nothing
+  assert.equal(posts.length, 0)
+  archiveOn = true
+  await post(Endpoint.OnSchedulerArchive, {})
+  archiveOn = false
+  const p = posts.at(-1)
+  assert.match(
+    p?.title ?? '',
+    /^🎬 CBFC certificates · \d{4}-\d{2}-\d{2} \(\d+\)$/,
+  )
+  const text = p?.text ?? ''
+  assert.match(
+    text,
+    /^\| Title \| Language \| Category \| Length \| Ref \| When \|\n\|---\|/,
+  )
+  // short items too (the trailer), When without "D2"
+  assert.match(
+    text,
+    /\| A TRAILER \| Tamil \| U \| 2m 10s \| TRL\/1\/1\/2026 \| 2026-11-06 \|/,
+  )
+  assert.doesNotMatch(text, /D2/)
+  // the initial data import counts as posted
+  assert.doesNotMatch(text, /ARIKOMBAN/)
+  archiveOn = true
+  await post(Endpoint.OnSchedulerArchive, {}) // nothing new: no second post
+  archiveOn = false
+  assert.equal(posts.length, 1)
+})
+
+test('archive: too long for one post is trimmed', async () => {
+  const {archiveText} = await import('./archive.ts')
+  const c = {category: 'U', date: '2026-11-08', language: 'Hindi', secs: 28}
+  const many = Array.from({length: 900}, (_, i) => ({
+    ...c,
+    ref: `AD/${i}/2026`,
+    title: `AD FILM ${i} | WITH A PIPE`,
+  }))
+  const text = archiveText(many)
+  assert.ok(text.length <= 40_000)
+  assert.match(text, /\n\n…and \d+ more not shown$/)
+  assert.match(text, /AD FILM 0 \\\| WITH A PIPE/)
 })
 
 test('source post: errors show in settings', async () => {
