@@ -189,14 +189,14 @@ test('source post: errors show in settings', async () => {
   assert.deepEqual(await check(''), {success: true})
   assert.deepEqual(await check('not a post'), {
     success: false,
-    error: 'Use the post ID, e.g. 1abc2de',
+    error: 'Post ID only, like 1abc2de',
   })
   assert.deepEqual(await check('t3_src'), {success: true})
   const real = reddit.getPostById
   reddit.getPostById = async () => ({body: 'hello'}) as never
   assert.deepEqual(await check('t3_src'), {
     success: false,
-    error: 'No certificate table in this post',
+    error: 'No certificate table found',
   })
   reddit.getPostById = async () => {
     throw new Error('404')

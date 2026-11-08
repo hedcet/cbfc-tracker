@@ -146,7 +146,7 @@ async function validateSourcePost(body: unknown): Promise<ValidationRsp> {
   const value = String((body as {value?: unknown}).value ?? '').trim()
   if (!value) return {success: true} // optional: without it, the tool is search only
   const id = postId(value)
-  if (!id) return {success: false, error: 'Use the post ID, e.g. 1abc2de'}
+  if (!id) return {success: false, error: 'Post ID only, like 1abc2de'}
   let text = ''
   try {
     text = (await reddit.getPostById(id as `t3_${string}`)).body ?? ''
@@ -154,7 +154,7 @@ async function validateSourcePost(body: unknown): Promise<ValidationRsp> {
     return {success: false, error: 'Post not found'}
   }
   if (!parseTable(text).length)
-    return {success: false, error: 'No certificate table in this post'}
+    return {success: false, error: 'No certificate table found'}
   return {success: true}
 }
 

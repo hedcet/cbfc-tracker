@@ -127,11 +127,11 @@ const newCount = (k: Keyword): number =>
 
 function keywordError(k: string): string {
   if (!KEYWORD.test(k))
-    return /\s/.test(k) ? 'One word only' : 'Letters and numbers only (2–20)'
-  if (STOP.has(k)) return 'Too common, try another word'
+    return /\s/.test(k) ? 'One word only' : '2–20 letters or digits'
+  if (STOP.has(k)) return 'Too common, try another'
   const same = keywords.find(x => x.keyword === k)
   if (same && follows(same)) return `Already following ${up(k)}`
-  if (atLimit()) return `You can follow ${MAX_FOLLOW} for now`
+  if (atLimit()) return `Limit: ${MAX_FOLLOW} keywords`
   return ''
 }
 function watchable(raw: string): string {
@@ -281,7 +281,7 @@ function addKeyword(raw: string): boolean {
   } else {
     item = kw(k, viewer, {[viewer]: clock}, isMod)
     keywords.push(item)
-    toast(isMod ? `Added ${up(k)}` : `Added ${up(k)} · in review`)
+    toast(isMod ? `Added ${up(k)}` : `${up(k)} sent for review`)
   }
   wError = ''
   jumpTo(item)
@@ -298,7 +298,7 @@ function follow(k: Keyword): void {
     return
   }
   if (atLimit()) {
-    toast(`You can follow ${MAX_FOLLOW} for now`)
+    toast(`Limit: ${MAX_FOLLOW} keywords`)
     return
   }
   k.subs[viewer] = clock

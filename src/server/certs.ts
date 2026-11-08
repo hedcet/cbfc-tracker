@@ -122,7 +122,7 @@ export function parseJson(text: string): Cert[] {
     const str = (k: string): string =>
       typeof o[k] === 'string' ? (o[k] as string).trim() : ''
     if (!str('ref') || !str('title'))
-      throw new Error(`Item ${i + 1}: ref and title are needed`)
+      throw new Error(`Item ${i + 1}: ref, title needed`)
     return {
       ref: str('ref'),
       title: str('title'),

@@ -151,14 +151,12 @@ export async function syncSource(): Promise<SyncInfo> {
   let added = 0
   let error = ''
   if (!id)
-    error = link.trim()
-      ? 'Source post ID is not valid'
-      : 'Source post not set in settings'
+    error = link.trim() ? 'Source post ID is not valid' : 'Source post not set'
   else {
     try {
       const post = await reddit.getPostById(id as `t3_${string}`)
       const rows = parseTable(post.body ?? '')
-      if (!rows.length) error = 'No certificate table in the source post'
+      if (!rows.length) error = 'No certificate table found'
       // the post is newest first: add oldest first so the newest gets the highest seq
       else added = await addCerts(rows.reverse(), false)
     } catch (err) {
