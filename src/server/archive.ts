@@ -1,7 +1,6 @@
 // Daily archive post: every certificate not posted yet, as one table, at 00:00 IST.
 
 import {context, reddit, settings} from '@devvit/web/server'
-import type {UiResponse} from '@devvit/web/shared'
 import {formatLength} from '../shared/api.ts'
 import {type Cert, todayIST} from './certs.ts'
 import {markPosted, unposted} from './store.ts'
@@ -45,18 +44,4 @@ export async function postArchive(): Promise<void> {
   // only after a successful post: a failed one is tried again the next night
   await markPosted(certs.map(c => c.ref))
   console.log(`archive post: ${certs.length} certificates`)
-}
-
-// TEMPORARY (testing): the archive post as it would be now, marked [Preview]; nothing is marked posted
-export async function previewArchive(): Promise<UiResponse> {
-  const sub = context.subredditName
-  const certs = await unposted()
-  if (!sub || !certs.length) return {showToast: 'Nothing new to post'}
-  const day = todayIST(new Date(Date.now() - 12 * 3600_000))
-  const post = await reddit.submitPost({
-    subredditName: sub,
-    text: archiveText(certs),
-    title: `[Preview] 🎬 CBFC certificates · ${day} (${certs.length})`,
-  })
-  return {navigateTo: post.url}
 }

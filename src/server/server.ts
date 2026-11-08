@@ -10,7 +10,7 @@ import {
   type WatchActRsp,
   type WatchReq,
 } from '../shared/api.ts'
-import {postArchive, previewArchive} from './archive.ts'
+import {postArchive} from './archive.ts'
 import {parseTable, postId} from './certs.ts'
 import {
   addPostRows,
@@ -161,9 +161,6 @@ async function route(
           query.get('q') ?? '',
           Number(query.get('page')) || 0,
         )
-        break
-      case Endpoint.OnMenuPreviewArchive:
-        rsp = await previewArchive()
         break
       case Endpoint.OnMenuNewPost:
         rsp = await routeMenuNewPost()

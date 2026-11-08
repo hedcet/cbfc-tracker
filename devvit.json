@@ -11,13 +11,6 @@
         "forUserType": "moderator",
         "label": "Add CBFC Tracker",
         "location": "subreddit"
-      },
-      {
-        "description": "Temporary: posts the daily archive as it would be now",
-        "endpoint": "/internal/on/menu/preview-archive",
-        "forUserType": "moderator",
-        "label": "Preview archive post",
-        "location": "subreddit"
       }
     ]
   },
