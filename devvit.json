@@ -30,7 +30,7 @@
   "scheduler": {
     "tasks": {
       "sync": {
-        "cron": "*/15 * * * *",
+        "cron": "0 * * * *",
         "endpoint": "/internal/scheduler/sync"
       }
     }
