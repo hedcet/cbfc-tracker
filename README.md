@@ -6,7 +6,7 @@ A Reddit tool that lets a film community follow Indian CBFC (censor board) certi
 - **Watchlist:** follow a film name and see "N new" when a matching certificate is issued.
 - **Archive:** each day at the set time, a new post lists every certificate not archived yet, in the same table format as the source post. Each certificate is marked once archived, so it is never posted twice.
 
-Built for r/kerala_boxoffice. It works in any subreddit that has a CBFC tracker post.
+Built for [r/kerala_boxoffice](https://www.reddit.com/r/kerala_boxoffice/). It works in any subreddit that has a CBFC tracker post.
 
 > **Version 1 status:** the screens below show the finished look, but they run on **demo data** (marked "DEMO DATA"). Loading real certificates, the watchlist, and the daily archive are coming in the next versions (see [Roadmap](#roadmap)).
 
@@ -16,7 +16,7 @@ Built for r/kerala_boxoffice. It works in any subreddit that has a CBFC tracker 
 | -------------------------- | ------------------------------------ | -------------------------------- |
 | ![Search](docs/search.png) | ![Certificate](docs/certificate.png) | ![Watchlist](docs/watchlist.png) |
 
-**Search** works for everyone, from the first letter typed. It shows "4,223 films" with an empty box, and "N matches · Watch X" while you type. Tap a row to open its certificate.
+**Search** works for everyone, from the first letter typed. It shows the total, like "12,345 films", with an empty box, and "N matches · Watch X" while you type. Tap a row to open its certificate.
 
 **Watchlist** rules:
 
@@ -96,10 +96,10 @@ docs/              screenshots
 
 ## Roadmap
 
-| Version | Work                                                            | Status           |
-| ------- | --------------------------------------------------------------- | ---------------- |
-| 1       | Search + Watchlist look, settings, "Add CBFC Tracker" menu      | done (demo data) |
-| 2       | Read the source post and initial data into storage; real Search | next             |
-| 3       | Real Watchlist with all the rules                               |                  |
-| 4       | Archive post                                                    |                  |
-| 5       | Install on r/kerala_boxoffice                                   |                  |
+| Version | Work                                                                        | Status           |
+| ------- | --------------------------------------------------------------------------- | ---------------- |
+| 1       | Search + Watchlist look, settings, "Add CBFC Tracker" menu                  | done (demo data) |
+| 2       | Read the source post and initial data into storage; real Search             | next             |
+| 3       | Real Watchlist with all the rules                                           |                  |
+| 4       | Archive post                                                                |                  |
+| 5       | Install on [r/kerala_boxoffice](https://www.reddit.com/r/kerala_boxoffice/) |                  |
