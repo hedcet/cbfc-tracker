@@ -88,22 +88,31 @@ export async function allCerts(): Promise<CertRow[]> {
 }
 
 // all certificates, newest first, with normalized titles; reloaded only after an add
-let cache: {ver: string; rows: CertRow[]; titles: string[]} | null = null
-async function sorted(): Promise<{rows: CertRow[]; titles: string[]}> {
+// names: one-word titles, used as placeholder examples (also valid keywords)
+type Cache = {ver: string; rows: CertRow[]; titles: string[]; names: string[]}
+let cache: Cache | null = null
+async function sorted(): Promise<Cache> {
   const ver = (await redis.get(VER)) ?? '0'
   if (cache?.ver !== ver) {
     const rows = (await allCerts()).sort(
       (a, b) => b[5].localeCompare(a[5]) || b[6] - a[6],
     )
-    cache = {ver, rows, titles: rows.map(r => norm(r[1]))}
+    cache = {
+      ver,
+      rows,
+      titles: rows.map(r => norm(r[1])),
+      names: rows.map(r => r[1]).filter(t => /^[A-Z0-9]{5,14}$/.test(t)),
+    }
   }
   return cache
 }
 
 /** One page of certificates whose title contains q (all when q is empty). */
 export async function searchCerts(q: string, page: number): Promise<SearchRsp> {
-  const {rows, titles} = await sorted()
+  const {rows, titles, names} = await sorted()
   const k = norm(q)
+  const pick = (): string =>
+    names[Math.floor(Math.random() * names.length)] ?? 'DRISHYAM'
   const hits = k ? rows.filter((_, i) => titles[i]?.includes(k)) : rows
   const start = Math.max(0, page) * PAGE
   return {
@@ -111,6 +120,7 @@ export async function searchCerts(q: string, page: number): Promise<SearchRsp> {
     certs: hits.slice(start, start + PAGE),
     exact: !!k && titles.includes(k),
     clock: rows.reduce((m, r) => Math.max(m, r[6]), 0),
+    hints: [pick(), pick()],
   }
 }
 

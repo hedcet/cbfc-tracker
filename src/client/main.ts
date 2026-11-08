@@ -82,8 +82,9 @@ type Keyword = {
 
 let films: Film[] = [] // the search page on screen
 let total = 0 // all matches of the search
+let shownQ = '' // the search the films on screen belong to
 let exact = false // a title equals the search
-let names: string[] = [] // placeholder examples from the newest films
+let hints: string[] = [] // random film names from the server: [search, watchlist]
 let certsState: 'loading' | 'ready' | 'error' = 'loading'
 let newCounts: Record<number, number> = {} // keyword id → new since follow
 
@@ -169,12 +170,13 @@ function pager(
 const toast = (msg: string): void => showToast(msg)
 
 function placeholders(): void {
-  const pick = (): string =>
-    names[Math.floor(Math.random() * names.length)] ?? 'DRISHYAM'
+  // a too-common word is not a valid keyword: fall back for the watchlist
+  const watch = hints[1] && !STOP.has(hints[1].toLowerCase()) ? hints[1] : ''
   $<HTMLInputElement>('wInput').placeholder = loggedIn()
-    ? `Film name, like ${pick()}`
+    ? `Film name, like ${watch || 'DRISHYAM'}`
     : 'Log in to add'
-  $<HTMLInputElement>('sInput').placeholder = `Search films, like ${pick()}`
+  $<HTMLInputElement>('sInput').placeholder =
+    `Search films, like ${hints[0] || 'DRISHYAM'}`
 }
 
 function showTab(t: string): void {
@@ -339,11 +341,13 @@ function renderSearch(): void {
 
   const word = watchable(raw)
   $('sCount').innerHTML =
-    !q || certsState !== 'ready'
-      ? totalLine(total)
-      : total
-        ? `${total} match${total === 1 ? '' : 'es'}${word ? ` · <a role="button" tabindex="0" data-act="watch">Watch ${esc(up(word))}</a>` : ''}`
-        : ''
+    certsState === 'ready' && q !== shownQ
+      ? 'Searching…' // the answer for the new text is on its way
+      : !q || certsState !== 'ready'
+        ? totalLine(total)
+        : total
+          ? `${total} match${total === 1 ? '' : 'es'}${word ? ` · <a role="button" tabindex="0" data-act="watch">Watch ${esc(up(word))}</a>` : ''}`
+          : ''
 
   pager('sPager', 's', total, () => void loadSearch())
   $('sList').innerHTML =
@@ -515,13 +519,12 @@ async function loadSearch(): Promise<void> {
     const data = (await rsp.json()) as SearchRsp
     if (mine !== asked) return
     films = data.certs.map(toFilm)
+    shownQ = q
     total = data.total
     exact = data.exact
     clock = data.clock
-    if (!q && !names.length)
-      names = films
-        .filter(f => /^[A-Z0-9]{5,14}$/.test(f.title))
-        .map(f => f.title)
+    hints = data.hints
+    placeholders()
     certsState = 'ready'
   } catch (err) {
     console.error(err)
