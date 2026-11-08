@@ -118,7 +118,7 @@ const post = (endpoint: string, body: unknown): Promise<Response> =>
     method: 'POST',
   })
 
-test('initial data: checked on save, imported once by the next sync', async () => {
+test('initial data: checked and imported on save, only once', async () => {
   const data = JSON.stringify([
     {
       category: 'UA 13+',
@@ -139,11 +139,12 @@ test('initial data: checked on save, imported once by the next sync', async () =
   ])
   const rsp = await post(Endpoint.ValidateInitialData, {value: data})
   assert.deepEqual(await rsp.json(), {success: true})
-  assert.equal(hash('certs').size, 0) // saving alone imports nothing
-  initialData = data
-  for (let i = 0; i < 2; i++) await post(Endpoint.OnSchedulerSync, {})
   assert.equal(hash('certs').has('CHE/1/210/2026'), true)
   assert.equal(strs.has('import'), true)
+  await post(Endpoint.ValidateInitialData, {value: data}) // same text again
+  initialData = data
+  await post(Endpoint.OnSchedulerSync, {}) // and the hourly sync
+  assert.equal(hash('certs').size, 2) // + 1 from the source post; no duplicates
 })
 
 test('initial data: bad JSON is refused with a message', async () => {

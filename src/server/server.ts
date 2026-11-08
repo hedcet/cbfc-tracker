@@ -9,8 +9,16 @@ import {
   type NewRsp,
   type SearchRsp,
 } from '../shared/api.ts'
-import {parseJson, parseTable, postId} from './certs.ts'
-import {importSetting, newCounts, searchCerts, syncSource} from './store.ts'
+import {parseTable, postId} from './certs.ts'
+import {
+  addPostRows,
+  importSetting,
+  importText,
+  newCounts,
+  searchCerts,
+  syncIfStale,
+  syncSource,
+} from './store.ts'
 
 const TOOL_POST = 'post' // id of the one tool post
 
@@ -56,6 +64,8 @@ async function route(
         rsp = await routeMe()
         break
       case Endpoint.Search:
+        // opening the post (first page, no query) also catches missed source edits
+        if (!query.get('q') && !Number(query.get('page'))) await syncIfStale()
         rsp = await searchCerts(
           query.get('q') ?? '',
           Number(query.get('page')) || 0,
@@ -153,18 +163,18 @@ async function validateSourcePost(body: unknown): Promise<ValidationRsp> {
   } catch {
     return {error: 'Post not found', success: false}
   }
-  if (!parseTable(text).length)
-    return {error: 'No certificate table found', success: false}
+  const rows = parseTable(text)
+  if (!rows.length) return {error: 'No certificate table found', success: false}
+  await addPostRows(rows) // stored right away, no wait for the hourly sync
   return {success: true}
 }
 
-// Initial data is only checked here; the next sync imports it (once), so a
-// failed save never imports and other settings changes never re-import.
+// Initial data is checked and imported on save (once per distinct text).
 async function validateInitialData(body: unknown): Promise<ValidationRsp> {
   const value = String((body as {value?: unknown}).value ?? '').trim()
   if (!value) return {success: true}
   try {
-    parseJson(value)
+    await importText(value)
     return {success: true}
   } catch (err) {
     return {
