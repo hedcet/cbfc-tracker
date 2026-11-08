@@ -249,7 +249,16 @@ function renderWatch(): void {
         const chip = n
           ? `<span class="chip" role="button" tabindex="0" title="Show matches" data-act="search-for" data-id="${k.id}">${n} new ›</span>`
           : ''
-        const line2 = `${followerCount(k)} follower${followerCount(k) === 1 ? '' : 's'}${owner ? ' · yours' : isMod ? ` · ${k.owner}` : ''}`
+        // "u/kochi_fan + 2 followers" (owner + the others); "You + 2 followers" for your own
+        const count = followerCount(k)
+        const plural = (x: number): string =>
+          `${x} follower${x === 1 ? '' : 's'}`
+        const who = owner ? 'You' : isMod ? k.owner : ''
+        const line2 = who
+          ? count > 1
+            ? `${who} + ${plural(count - 1)}`
+            : who
+          : plural(count)
         const label = on ? 'Unfollow' : 'Follow'
         const acts = [
           `<button class="icon bell ${on ? 'on' : ''}" type="button" ${signed ? '' : 'disabled'} title="${signed ? label : 'Log in to follow'}" aria-label="${label}" aria-pressed="${on}" data-act="follow" data-id="${k.id}">${on ? ICON.bellOn : ICON.bell}</button>`,
