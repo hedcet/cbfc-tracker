@@ -19,7 +19,14 @@ import {
   syncIfStale,
   syncSource,
 } from './store.ts'
-import {notifyNew, postTitle, TOOL_POST, viewer, watch} from './watch.ts'
+import {
+  notifyNew,
+  postTitle,
+  preview,
+  TOOL_POST,
+  viewer,
+  watch,
+} from './watch.ts'
 
 type ValidationRsp = {success: boolean; error?: string}
 type EmptyRsp = Record<string, never>
@@ -143,6 +150,9 @@ async function route(
           query.get('q') ?? '',
           Number(query.get('page')) || 0,
         )
+        break
+      case Endpoint.OnMenuPreview:
+        rsp = await preview()
         break
       case Endpoint.OnMenuNewPost:
         rsp = await routeMenuNewPost()
