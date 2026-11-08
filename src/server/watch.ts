@@ -1,7 +1,6 @@
 // Watchlist: keywords, followers and their modmail alerts.
 
 import {context, reddit, redis, settings} from '@devvit/web/server'
-import type {UiResponse} from '@devvit/web/shared'
 import {
   formatLength,
   type Keyword,
@@ -287,48 +286,6 @@ export async function watch(body: Partial<WatchReq>): Promise<WatchActRsp> {
     if (err) return {error: err, status: 400}
   }
   return {keywords: await list(me)}
-}
-
-// TEMPORARY (v3 testing): every message type, with sample films, to the mod who asks
-export async function preview(): Promise<UiResponse> {
-  const me = await viewer()
-  if (!me.username) return {showToast: 'Log in first'}
-  const cert = (
-    title: string,
-    language: string,
-    category: string,
-    secs: number,
-  ): Cert => ({
-    category,
-    date: '',
-    language,
-    ref: `${title}/${language}`,
-    secs,
-    title,
-  })
-  const d3 = cert('DRISHYAM 3', 'Malayalam', 'UA 13+', 9182)
-  for (const body of [
-    await welcomeText('drishyam'),
-    alertText([{cert: d3, words: ['drishyam']}]),
-    alertText([
-      {cert: cert('DRISHYAM 3', 'Tamil', 'UA 13+', 9182), words: ['drishyam']},
-      {cert: cert('DRISHYAM 3', 'Telugu', 'UA 13+', 9182), words: ['drishyam']},
-      {
-        cert: cert('TOXIC: A FAIRY TALE', 'Kannada', 'A', 9600),
-        words: ['toxic'],
-      },
-    ]),
-    alertText([
-      {
-        cert: cert('DRISHYAM KANTARA', 'Malayalam', 'U', 7800),
-        words: ['drishyam', 'kantara'],
-      },
-    ]),
-    goodbyeText('toxic'),
-    replyText(),
-  ])
-    await send(me.username, body)
-  return {showToast: {appearance: 'success', text: 'Sent 6 sample messages'}}
 }
 
 export const replyText = (): string =>

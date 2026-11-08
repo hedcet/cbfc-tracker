@@ -9,7 +9,7 @@ Reddit (Devvit) app for following Indian CBFC film certificates. Built for [r/ke
 - **Search:** every stored film, newest first; tap a row for its certificate.
 - **Watchlist:** follow a one-word keyword (2–20 letters/digits, max 3 per user; mods unlimited). It matches every title containing it, and shows "N new" since you followed.
   - New keywords are visible to their followers; a mod can make one **public** for everyone. Only the person who added a keyword can remove it; if others still follow it, it passes to the earliest follower.
-  - **Alerts:** each follower gets one modmail conversation from the subreddit (subject = the Title setting) with a message on follow (🔔 ON), on unfollow (🔕 OFF), and whenever new matching certificates arrive.
+  - **Alerts:** each follower gets one modmail conversation from the subreddit (subject = the Title setting) with a message on follow (🔔 ON), on unfollow (🔕 OFF), and whenever new matching certificates arrive. A reply there gets one automatic answer a day ("replies are not read") and the thread is archived again, so mods' modmail stays clean. (Mods who follow keywords get theirs as Mod Discussions.)
 
 ## Install (moderators)
 

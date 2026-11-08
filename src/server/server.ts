@@ -23,7 +23,6 @@ import {
   notifyNew,
   onModMail,
   postTitle,
-  preview,
   TOOL_POST,
   viewer,
   watch,
@@ -151,9 +150,6 @@ async function route(
           query.get('q') ?? '',
           Number(query.get('page')) || 0,
         )
-        break
-      case Endpoint.OnMenuPreview:
-        rsp = await preview()
         break
       case Endpoint.OnMenuNewPost:
         rsp = await routeMenuNewPost()

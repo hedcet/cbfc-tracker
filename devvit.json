@@ -11,13 +11,6 @@
         "forUserType": "moderator",
         "label": "Add CBFC Tracker",
         "location": "subreddit"
-      },
-      {
-        "description": "Temporary: sends every alert message type to you",
-        "endpoint": "/internal/on/menu/preview",
-        "forUserType": "moderator",
-        "label": "Preview CBFC messages",
-        "location": "subreddit"
       }
     ]
   },

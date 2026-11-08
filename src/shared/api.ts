@@ -84,7 +84,6 @@ export type Endpoint = (typeof Endpoint)[keyof typeof Endpoint]
 export const Endpoint = {
   Me: 'api/me',
   OnMenuNewPost: 'internal/on/menu/new-post',
-  OnMenuPreview: 'internal/on/menu/preview',
   OnModMail: 'internal/on/modmail',
   OnPostUpdate: 'internal/on/post-update',
   OnSchedulerSync: 'internal/scheduler/sync',
@@ -98,7 +97,6 @@ export const EndpointMethod = {
   [Endpoint.Me]: 'GET',
   [Endpoint.Search]: 'GET',
   [Endpoint.OnMenuNewPost]: 'POST',
-  [Endpoint.OnMenuPreview]: 'POST',
   [Endpoint.OnModMail]: 'POST',
   [Endpoint.OnPostUpdate]: 'POST',
   [Endpoint.OnSchedulerSync]: 'POST',
