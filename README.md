@@ -4,7 +4,7 @@ A Reddit tool that lets a film community follow Indian CBFC (censor board) certi
 
 - **Search:** find any certified film and open its certificate details.
 - **Watchlist:** follow a film name and see "N new" when a matching certificate is issued.
-- **Daily archive:** once a day, a new post lists the certificates of the previous 24 hours.
+- **Archive:** each day at the set time, a new post lists every certificate not archived yet, in the same table format as the source post. Each certificate is marked once archived, so it is never posted twice.
 
 Built for r/kerala_boxoffice. It works in any subreddit that has a CBFC tracker post.
 
@@ -35,12 +35,12 @@ Built for r/kerala_boxoffice. It works in any subreddit that has a CBFC tracker 
 
 ## Settings
 
-| Setting                      | What it does                                                                                                                                                       | Default         |
-| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------- |
-| **Tracker title**            | Title of the post created by "Add CBFC Tracker"                                                                                                                    | 🎬 CBFC Tracker |
-| **Daily archive time (IST)** | Once a day at this time, a new post lists the certificates of the 24 hours before. The first post comes at the next set time after install. Choose Off to stop it. | 00:00           |
-| **Source post**              | Link or ID of the tracker post that `cbfc.js` keeps updating. The app reads new certificates from it and never edits it.                                           | empty           |
-| **Initial data (JSON)**      | Past certificates, pasted once. Loaded when you save.                                                                                                              | empty           |
+| Setting                 | What it does                                                                                                                                | Default         |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | --------------- |
+| **Title**               | Title of the post created by "Add CBFC Tracker"                                                                                             | 🎬 CBFC Tracker |
+| **Archive time (IST)**  | Each day at this time, a new post lists every certificate not archived yet. Initial data counts as already archived. Choose Off to stop it. | 00:00           |
+| **Source post**         | Link or ID of the tracker post that `cbfc.js` keeps updating. The app reads new certificates from it and never edits it.                    | empty           |
+| **Initial data (JSON)** | Past certificates, pasted once. Loaded when you save.                                                                                       | empty           |
 
 ### Source post format
 
@@ -101,5 +101,5 @@ docs/              screenshots
 | 1       | Search + Watchlist look, settings, "Add CBFC Tracker" menu      | done (demo data) |
 | 2       | Read the source post and initial data into storage; real Search | next             |
 | 3       | Real Watchlist with all the rules                               |                  |
-| 4       | Daily archive post                                              |                  |
+| 4       | Archive post                                                    |                  |
 | 5       | Install on r/kerala_boxoffice                                   |                  |

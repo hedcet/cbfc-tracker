@@ -18,12 +18,14 @@
     "subreddit": {
       "postTitle": {
         "type": "string",
-        "label": "Tracker title: title of the post created by \"Add CBFC Tracker\"",
+        "label": "Title",
+        "helpText": "Title of the post created by \"Add CBFC Tracker\"",
         "defaultValue": "🎬 CBFC Tracker"
       },
       "dailyPostTime": {
         "type": "select",
-        "label": "Daily archive time (IST): a new post with the certificates of the 24 hours before this time",
+        "label": "Archive time (IST)",
+        "helpText": "Each day at this time, a new post lists every certificate not archived yet",
         "options": [
           {"label": "Off", "value": "off"},
           {"label": "00:00", "value": "00:00"},
@@ -36,12 +38,14 @@
       },
       "trackerPost": {
         "type": "string",
-        "label": "Source post: the post cbfc.js keeps updating (link or ID)",
+        "label": "Source post",
+        "helpText": "Link or ID of the post cbfc.js keeps updating",
         "defaultValue": ""
       },
       "initialData": {
         "type": "paragraph",
-        "label": "Initial data (JSON): past certificates, loaded once when saved",
+        "label": "Initial data (JSON)",
+        "helpText": "Past certificates, loaded once when saved",
         "defaultValue": ""
       }
     }
