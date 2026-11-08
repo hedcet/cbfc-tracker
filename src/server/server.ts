@@ -42,9 +42,17 @@ type AnyRsp =
   | ErrorRsp
   | EmptyRsp
 
+// large enough for the initial data setting, small enough to refuse floods
+const MAX_BODY = 10 * 1024 * 1024
+
 async function readJson(req: IncomingMessage): Promise<unknown> {
   const chunks: Buffer[] = []
-  for await (const chunk of req) chunks.push(chunk as Buffer)
+  let size = 0
+  for await (const chunk of req) {
+    size += (chunk as Buffer).length
+    if (size <= MAX_BODY) chunks.push(chunk as Buffer) // past the cap: read on, keep nothing
+  }
+  if (size > MAX_BODY) throw new Error('request body too large')
   const text = Buffer.concat(chunks).toString('utf8')
   return text ? JSON.parse(text) : {}
 }
@@ -128,6 +136,17 @@ async function validateInitialData(body: unknown): Promise<ValidationRsp> {
   }
 }
 
+// Internal endpoints are for Reddit (scheduler, triggers, menu, settings). A
+// logged-in non-mod calling one from the page is refused; the scheduler runs
+// without a user. Triggers stay open: a fake call can only re-read the source
+// post or answer a user's own alerts thread.
+const OPEN: string[] = [Endpoint.OnModMail, Endpoint.OnPostUpdate]
+async function platformOrMod(endpoint: string): Promise<boolean> {
+  if (OPEN.includes(endpoint)) return true
+  const me = await viewer()
+  return !me.username || me.isMod
+}
+
 async function step(run: () => Promise<void>): Promise<void> {
   try {
     await run()
@@ -148,6 +167,11 @@ async function route(
   let rsp: AnyRsp
   if (method !== reqMsg.method) {
     rsp = {error: 'not found', status: 404}
+  } else if (
+    endpoint.startsWith('internal/') &&
+    !(await platformOrMod(endpoint))
+  ) {
+    rsp = {error: 'forbidden', status: 403}
   } else {
     switch (endpoint) {
       case Endpoint.Me:
@@ -218,8 +242,8 @@ export async function onReq(
   try {
     await route(reqMsg, rspMsg)
   } catch (err) {
-    const msg = `server error; ${err instanceof Error ? err.stack : err}`
-    console.error(msg)
-    writeJson<ErrorRsp>(500, {error: msg, status: 500}, rspMsg)
+    // details in the log only: the page gets no stack trace
+    console.error('server error;', err instanceof Error ? err.stack : err)
+    writeJson<ErrorRsp>(500, {error: 'server error', status: 500}, rspMsg)
   }
 }

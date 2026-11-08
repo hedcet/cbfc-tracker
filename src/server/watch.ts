@@ -542,6 +542,8 @@ export async function watch(body: Partial<WatchReq>): Promise<WatchActRsp> {
     await redis.set(TOOL_POST, context.postId)
   const me = await viewer()
   if (body.act) {
+    if (!['follow', 'private', 'public', 'unfollow'].includes(body.act))
+      return {error: 'Unknown action', status: 400}
     if (!me.username) return {error: 'Log in first', status: 401}
     const who = {isMod: me.isMod, username: me.username}
     const word = norm(body.word ?? '')

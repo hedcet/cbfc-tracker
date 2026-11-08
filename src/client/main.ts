@@ -58,7 +58,6 @@ type Film = {
 let films: Film[] = [] // the search page on screen
 let total = 0 // all matches of the search
 let shownQ = '' // the search the films on screen belong to
-let exact = false // a title equals the search
 let hints: string[] = [] // random film names from the server: [search, watchlist]
 let certsState: 'loading' | 'ready' | 'error' = 'loading'
 let keywords: Keyword[] = [] // the viewer's watchlist, from the server
@@ -86,7 +85,6 @@ function addError(k: string): string {
 function watchable(raw: string): string {
   const k = norm(raw)
   if (!loggedIn() || keywordError(k)) return ''
-  if (k.length <= 2 && !exact) return ''
   return find(k)?.following ? '' : k
 }
 
@@ -453,7 +451,6 @@ async function loadSearch(): Promise<void> {
     films = data.certs.map(toFilm)
     shownQ = q
     total = data.total
-    exact = data.exact
     hints = data.hints
     placeholders()
     certsState = 'ready'

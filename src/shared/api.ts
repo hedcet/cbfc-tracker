@@ -12,13 +12,12 @@ export const PAGE = 6
 
 /**
  * One page of search results, newest first.
- * total: all matches; exact: a title equals the query;
+ * total: all matches;
  * hints: two random one-word titles for the search and watchlist placeholders.
  */
 export type SearchRsp = {
   total: number
   certs: CertRow[]
-  exact: boolean
   hints: [string, string]
 }
 

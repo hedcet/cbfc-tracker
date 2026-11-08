@@ -181,12 +181,48 @@ test('404', async () => {
   assert.equal(rsp.status, 404)
 })
 
-const post = (endpoint: string, body: unknown): Promise<Response> =>
+const send = (endpoint: string, body: unknown): Promise<Response> =>
   fetch(`${serverURL}/${endpoint}`, {
     body: JSON.stringify(body),
     headers: {'Content-Type': 'application/json'},
     method: 'POST',
   })
+// internal endpoints are called by Reddit: no user (like the scheduler)
+const post = async (endpoint: string, body: unknown): Promise<Response> => {
+  if (!endpoint.startsWith('internal/')) return send(endpoint, body)
+  const as = user
+  user = {mod: false, name: ''}
+  try {
+    return await send(endpoint, body)
+  } finally {
+    user = as
+  }
+}
+
+test('security: internal endpoints refuse logged-in non-mods', async () => {
+  user = {mod: false, name: 'mallory'}
+  for (const e of [
+    Endpoint.OnSchedulerArchive,
+    Endpoint.OnSchedulerSync,
+    Endpoint.ValidateInitialData,
+    Endpoint.OnMenuNewPost,
+  ])
+    assert.equal((await send(e, {})).status, 403, e)
+  user = {mod: true, name: 'username'} // mods (menu, settings) may
+  assert.equal((await send(Endpoint.OnSchedulerSync, {})).status, 200)
+})
+
+test('security: unknown action, oversized body, no stack trace', async () => {
+  const r = (await (
+    await send(Endpoint.Watch, {act: 'drop', word: 'x'})
+  ).json()) as ErrorRsp
+  assert.deepEqual(r, {error: 'Unknown action', status: 400})
+  const big = await fetch(`${serverURL}/${Endpoint.Watch}`, {
+    body: 'x'.repeat(11 * 1024 * 1024),
+    method: 'POST',
+  })
+  assert.deepEqual(await big.json(), {error: 'server error', status: 500})
+})
 
 test('initial data: checked and imported on save, only once', async () => {
   const data = JSON.stringify([
@@ -238,13 +274,10 @@ test('sync reads the source post; films only, newest first', async () => {
   )
 })
 
-test('search: one page of matches, total and exact title', async () => {
+test('search: one page of matches and the total', async () => {
   const s = await get<SearchRsp>(`${Endpoint.Search}?q=drishyam&page=0`)
   assert.equal(s.total, 1)
   assert.equal(s.certs[0]?.[1], 'DRISHYAM 3')
-  assert.equal(s.exact, false)
-  const e = await get<SearchRsp>(`${Endpoint.Search}?q=arikomban&page=0`)
-  assert.equal(e.exact, true)
   const none = await get<SearchRsp>(`${Endpoint.Search}?q=drisyam&page=0`)
   assert.deepEqual([none.total, none.certs.length], [0, 0])
 })

@@ -118,7 +118,6 @@ export async function searchCerts(q: string, page: number): Promise<SearchRsp> {
   const start = Math.max(0, page) * PAGE
   return {
     certs: hits.slice(start, start + PAGE),
-    exact: !!k && titles.includes(k),
     hints: [pick(), pick()],
     total: hits.length,
   }
