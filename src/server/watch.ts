@@ -69,28 +69,39 @@ async function send(user: string, body: string): Promise<void> {
   const sub = context.subredditName
   if (!sub) return
   try {
-    const old = await redis.get(dm(user))
-    if (old) {
+    let id = await redis.get(dm(user))
+    if (id) {
       try {
-        await reddit.modMail.reply({body, conversationId: old})
-        await reddit.modMail.archiveConversation(old)
-        return
+        await reddit.modMail.reply({body, conversationId: id})
       } catch (err) {
         console.error(`modmail reply to ${user}:`, err) // gone: start a new one
+        id = undefined
       }
     }
-    const rsp = await reddit.modMail.createConversation({
-      body,
-      subject: (await postTitle()).slice(0, 100),
-      subredditName: sub,
-      to: user,
-    })
-    const id = rsp.conversation.id
-    if (!id) return
-    await redis.set(dm(user), id)
-    await reddit.modMail.archiveConversation(id)
+    if (!id) {
+      const rsp = await reddit.modMail.createConversation({
+        body,
+        subject: (await postTitle()).slice(0, 100),
+        subredditName: sub,
+        to: user,
+      })
+      id = rsp.conversation.id
+      if (!id) return
+      await redis.set(dm(user), id)
+    }
+    await archive(id)
   } catch (err) {
     console.error(`modmail to ${user}:`, err)
+  }
+}
+
+// keeps the mods' inbox clean; mod recipients land in Mod Discussions,
+// which cannot be archived: that is fine, the message is already sent
+async function archive(id: string): Promise<void> {
+  try {
+    await reddit.modMail.archiveConversation(id)
+  } catch {
+    // not archivable
   }
 }
 

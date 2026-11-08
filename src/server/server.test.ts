@@ -322,3 +322,16 @@ test('source post: errors show in settings', async () => {
   })
   reddit.getPostById = real
 })
+
+test('watch: mods (not archivable) still get one conversation', async () => {
+  const archive = reddit.modMail.archiveConversation
+  reddit.modMail.archiveConversation = async () => {
+    throw new Error('Cannot archive/unarchive internal conversations.')
+  }
+  user = {mod: true, name: 'modx'}
+  await watch({act: 'follow', word: 'aadu'})
+  await watch({act: 'unfollow', word: 'aadu'})
+  reddit.modMail.archiveConversation = archive
+  assert.equal(sent.filter(m => m.to === 'modx').length, 2)
+  assert.equal([...convTo.values()].filter(u => u === 'modx').length, 1)
+})
