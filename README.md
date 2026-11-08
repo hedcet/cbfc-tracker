@@ -8,7 +8,7 @@ A Reddit tool that lets a film community follow Indian CBFC (censor board) certi
 
 Built for [r/kerala_boxoffice](https://www.reddit.com/r/kerala_boxoffice/). It works in any subreddit that has a CBFC tracker post.
 
-> **Version 1 status:** the screens below show the finished look, but they run on **demo data** (marked "DEMO DATA"). Loading real certificates, the watchlist, and the daily archive are coming in the next versions (see [Roadmap](#roadmap)).
+> **Version 1 status:** the screens below show the finished look, but they run on **demo data** (marked "DEMO DATA"). Loading real certificates, the watchlist, and the archive post are coming in the next versions (see [Roadmap](#roadmap)).
 
 ## Screens
 

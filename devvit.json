@@ -22,7 +22,7 @@
         "helpText": "Title of the post created by \"Add CBFC Tracker\"",
         "defaultValue": "🎬 CBFC Tracker"
       },
-      "dailyPostTime": {
+      "archiveTime": {
         "type": "select",
         "label": "Archive time (IST)",
         "helpText": "Each day at this time, a new post lists every certificate not archived yet",
@@ -54,7 +54,7 @@
     "items": [
       {
         "label": "Add CBFC Tracker",
-        "description": "Watchlist and search for CBFC certificates",
+        "description": "Search and watchlist for CBFC certificates",
         "location": "subreddit",
         "forUserType": "moderator",
         "endpoint": "/internal/on/menu/new-post"

@@ -1,6 +1,6 @@
 import {Endpoint, type MeRsp} from '../shared/api.ts'
 
-// Demo build: the UI from reddit/prototype.html running on sample data in the browser.
+// Version 1: the full Search and Watchlist UI running on sample data in the browser.
 // Phase 1 replaces the sample data with certificates read from the tracker post;
 // Phase 3 moves the watchlist rules to the server (Redis).
 
