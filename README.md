@@ -7,10 +7,10 @@ Reddit (Devvit) app for following Indian CBFC film certificates. Built for [r/ke
 | ![Search](https://raw.githubusercontent.com/hedcet/cbfc-tracker/main/docs/search.png) | ![Certificate](https://raw.githubusercontent.com/hedcet/cbfc-tracker/main/docs/certificate.png) | ![Watchlist](https://raw.githubusercontent.com/hedcet/cbfc-tracker/main/docs/watchlist.png) |
 
 - **Search:** every stored film, newest first; tap a row for its certificate.
-- **Watchlist:** follow a one-word keyword (2–20 letters/digits; 3 per user, mods unlimited) matching every title that contains it; "N new" counts since you followed. Keywords are visible to their followers until a mod makes one **public**. The last follower leaving removes a keyword; an owner leaving passes it to the earliest follower.
-- **Alerts:** one modmail conversation per follower, from the subreddit (subject: the Title setting): 🔔 ON on follow, 🔕 OFF on unfollow, and new matching certificates (at most 5 per keyword and 10 per message, then "+N more").
-  - More than 2 messages in an hour switches to one grouped message an hour (📦); more than 8 in a day, to one a day. A full hour (day) with at most 2 (8) updates switches back. Failed sends are retried.
-  - Replies get one automatic answer a day ("🤖 Automated alerts thread · replies aren’t read, sorry.") and the thread is archived again. Mods get theirs as Mod Discussions.
+- **Watchlist:** follow up to 3 one-word keywords (2–20 letters or digits; mods unlimited) to hear about every title that contains them; "N new" shows matches since you followed. A keyword is shared with its followers, and mods can make it **public** for everyone.
+- **Alerts:** one modmail conversation from the subreddit: 🔔 when you follow, 🔕 when you unfollow, and each new matching certificate.
+  - Busy times stay calm: after 2 messages in an hour (or 8 in a day), updates come together in one 📦 message per hour (or day), and instant alerts return once things quiet down.
+  - Replies get a short automatic note (🤖) and the thread is archived, keeping modmail tidy. (Mods receive theirs as Mod Discussions.)
 
 ## Install (moderators)
 
