@@ -1,5 +1,5 @@
 import type {IncomingMessage, ServerResponse} from 'node:http'
-import {context, reddit, settings} from '@devvit/web/server'
+import {context, reddit, redis, settings} from '@devvit/web/server'
 import type {PartialJsonValue, UiResponse} from '@devvit/web/shared'
 import {
   Endpoint,
@@ -11,6 +11,8 @@ import {
 } from '../shared/api.ts'
 import {parseJson, parseTable, postId} from './certs.ts'
 import {importSetting, newCounts, searchCerts, syncSource} from './store.ts'
+
+const TOOL_POST = 'post' // id of the one tool post
 
 type ValidationRsp = {success: boolean; error?: string}
 type EmptyRsp = Record<string, never>
@@ -107,12 +109,27 @@ async function routeMe(): Promise<MeRsp> {
   return {username: user.username, isMod: perms.length > 0}
 }
 
-// "Add CBFC Tracker" (mod menu): the title comes from the subreddit's app settings.
+// "Add CBFC Tracker" (mod menu): one tool post per subreddit; the title comes
+// from settings. If it already exists (not removed), go there instead.
 async function routeMenuNewPost(): Promise<UiResponse> {
+  const old = await redis.get(TOOL_POST)
+  if (old) {
+    try {
+      const post = await reddit.getPostById(old as `t3_${string}`)
+      if (!post.removed && post.authorName !== '[deleted]')
+        return {
+          showToast: {text: 'Tracker already added', appearance: 'neutral'},
+          navigateTo: post.url,
+        }
+    } catch {
+      // gone: make a new one
+    }
+  }
   const title =
     (await settings.get<string>('postTitle'))?.trim() ||
     '🎬 CBFC Certificates: Search & Watchlist (Unofficial)'
   const post = await reddit.submitCustomPost({title})
+  await redis.set(TOOL_POST, post.id)
   return {
     showToast: {text: 'CBFC Tracker added', appearance: 'success'},
     navigateTo: post.url,
@@ -146,7 +163,7 @@ async function validateSourcePost(body: unknown): Promise<ValidationRsp> {
   const value = String((body as {value?: unknown}).value ?? '').trim()
   if (!value) return {success: true} // optional: without it, the tool is search only
   const id = postId(value)
-  if (!id) return {success: false, error: 'Post ID only, like 1abc2de'}
+  if (!id) return {success: false, error: 'Post ID only, like 123456'}
   let text = ''
   try {
     text = (await reddit.getPostById(id as `t3_${string}`)).body ?? ''

@@ -113,16 +113,17 @@ export function parseJson(text: string): Cert[] {
   let data: unknown
   try {
     data = JSON.parse(text)
-  } catch {
-    throw new Error('Not valid JSON')
+  } catch (err) {
+    // the parser's own message, like "Unexpected token o in JSON at position 1"
+    throw new Error(err instanceof Error ? err.message : String(err))
   }
   if (!Array.isArray(data)) throw new Error('Expected a JSON list [ … ]')
   return data.map((x, i) => {
     const o = (x ?? {}) as Record<string, unknown>
     const str = (k: string): string =>
       typeof o[k] === 'string' ? (o[k] as string).trim() : ''
-    if (!str('ref') || !str('title'))
-      throw new Error(`Item ${i + 1}: ref, title needed`)
+    for (const k of ['ref', 'title'])
+      if (!str(k)) throw new Error(`Item ${i + 1}: "${k}" missing`)
     return {
       ref: str('ref'),
       title: str('title'),
@@ -134,7 +135,7 @@ export function parseJson(text: string): Cert[] {
   })
 }
 
-/** Post ID from a link ("…/comments/1abc2de/…") or an ID ("1abc2de", "t3_1abc2de"). */
+/** Post ID ("1abc2de" or "t3_1abc2de"); links are refused. */
 export function postId(text: string): string {
   const s = text.trim()
   const id = /^(?:t3_)?([a-z0-9]+)$/i.exec(s)?.[1]

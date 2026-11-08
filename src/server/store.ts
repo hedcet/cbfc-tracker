@@ -150,9 +150,10 @@ export async function syncSource(): Promise<SyncInfo> {
   const id = postId(link)
   let added = 0
   let error = ''
-  if (!id)
-    error = link.trim() ? 'Source post ID is not valid' : 'Source post not set'
-  else {
+  if (!id) {
+    // optional: no source post is fine (search only), not an error
+    if (link.trim()) error = 'Source post ID is not valid'
+  } else {
     try {
       const post = await reddit.getPostById(id as `t3_${string}`)
       const rows = parseTable(post.body ?? '')

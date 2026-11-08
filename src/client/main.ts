@@ -281,7 +281,7 @@ function addKeyword(raw: string): boolean {
   } else {
     item = kw(k, viewer, {[viewer]: clock}, isMod)
     keywords.push(item)
-    toast(isMod ? `Added ${up(k)}` : `${up(k)} sent for review`)
+    toast(`Added ${up(k)}`)
   }
   wError = ''
   jumpTo(item)

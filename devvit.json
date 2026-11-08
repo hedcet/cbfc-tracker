@@ -32,7 +32,7 @@
         "type": "string",
         "label": "Source post ID",
         "helpText": "Optional: post to read new certificates from",
-        "placeholder": "1abc2de",
+        "placeholder": "123456",
         "defaultValue": "",
         "validationEndpoint": "/internal/settings/source-post"
       },

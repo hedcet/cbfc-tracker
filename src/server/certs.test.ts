@@ -71,9 +71,9 @@ test('json: same shape as the post', () => {
 })
 
 test('json: clear errors', () => {
-  assert.throws(() => parseJson('{oops'), /Not valid JSON/)
+  assert.throws(() => parseJson('{oops'), /JSON|token|property/i)
   assert.throws(() => parseJson('{}'), /JSON list/)
-  assert.throws(() => parseJson('[{"title":"X"}]'), /Item 1/)
+  assert.throws(() => parseJson('[{"title":"X"}]'), /Item 1: "ref" missing/)
 })
 
 test('valid: films only, no future dates', () => {

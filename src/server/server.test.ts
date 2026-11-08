@@ -148,7 +148,9 @@ test('initial data: checked on save, imported once by the next sync', async () =
 
 test('initial data: bad JSON is refused with a message', async () => {
   const rsp = await post(Endpoint.ValidateInitialData, {value: '{oops'})
-  assert.deepEqual(await rsp.json(), {success: false, error: 'Not valid JSON'})
+  const out = (await rsp.json()) as {success: boolean; error: string}
+  assert.equal(out.success, false)
+  assert.match(out.error, /JSON|token|property/i) // the parser's message
 })
 
 const get = async <T>(path: string): Promise<T> =>
@@ -189,7 +191,7 @@ test('source post: errors show in settings', async () => {
   assert.deepEqual(await check(''), {success: true})
   assert.deepEqual(await check('not a post'), {
     success: false,
-    error: 'Post ID only, like 1abc2de',
+    error: 'Post ID only, like 123456',
   })
   assert.deepEqual(await check('t3_src'), {success: true})
   const real = reddit.getPostById
