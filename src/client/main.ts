@@ -35,6 +35,10 @@ const ICON = {
 /* ---------------- helpers ---------------- */
 const $ = <T extends HTMLElement = HTMLElement>(id: string): T =>
   document.getElementById(id) as T
+// counts where space is tight: 1.6K, 16.2K, 1.5L, 1.2Cr (exact numbers only where they matter)
+const num = (n: number): string =>
+  n.toLocaleString('en-IN', {maximumFractionDigits: 1, notation: 'compact'})
+
 const esc = (s: string): string =>
   s.replace(
     /[&<>"']/g,
@@ -82,9 +86,9 @@ function addError(k: string): string {
   if (atLimit()) return `Limit: ${MAX_FOLLOW} keywords`
   return ''
 }
-// one style wherever Search offers to watch: a small pill "＋ Watch DRISHYAM"
+// one style wherever Search offers to watch: a small pill "＋ Add DRISHYAM", like the Add button
 const watchBtn = (word: string): string =>
-  `<button class="btn xs" type="button" data-act="watch">${ICON.plus}Watch ${esc(up(word))}</button>`
+  `<button class="btn xs" type="button" data-act="watch">${ICON.plus}Add ${esc(up(word))}</button>`
 
 function watchable(raw: string): string {
   const k = norm(raw)
@@ -119,11 +123,8 @@ function pager(
 // plain text until the server sends a random title: "Search films, like KANTARA"
 function placeholders(): void {
   const like = (t: string | undefined): string => (t ? `, like ${t}` : '')
-  // a too-common word is not a valid keyword: no example for the watchlist
-  const watch =
-    hints[1] && !keywordError(hints[1].toLowerCase()) ? hints[1] : ''
   $<HTMLInputElement>('wInput').placeholder = loggedIn()
-    ? `Follow keywords${like(watch)}`
+    ? `Follow keywords${like(hints[1])}`
     : 'Log in to follow'
   $<HTMLInputElement>('sInput').placeholder = `Search films${like(hints[0])}`
 }
@@ -173,9 +174,11 @@ function renderWatch(): void {
     wError ||
     (list.length
       ? [
-          `${list.length} keyword${list.length === 1 ? '' : 's'}`,
-          signed ? `${list.filter(k => k.following).length} following` : '',
-          isMod && hidden ? `${hidden} not public` : '',
+          `${num(list.length)} keyword${list.length === 1 ? '' : 's'}`,
+          signed
+            ? `${num(list.filter(k => k.following).length)} following`
+            : '',
+          isMod && hidden ? `${num(hidden)} not public` : '',
         ]
           .filter(Boolean)
           .join(' · ')
@@ -190,11 +193,11 @@ function renderWatch(): void {
         const owner = k.owner === viewer
         const id = esc(k.word)
         const chip = k.fresh
-          ? `<span class="chip" role="button" tabindex="0" title="Show matches" data-act="search-for" data-id="${id}">${k.fresh} new ›</span>`
+          ? `<span class="chip" role="button" tabindex="0" title="${k.fresh.toLocaleString('en-IN')} new: show matches" data-act="search-for" data-id="${id}">${num(k.fresh)} new ›</span>`
           : ''
         // "u/kochi_fan + 2 followers" (owner + the others); "You + 2 followers" for your own
         const plural = (x: number): string =>
-          `${x} follower${x === 1 ? '' : 's'}`
+          `${num(x)} follower${x === 1 ? '' : 's'}`
         const who = owner ? 'You' : isMod ? `u/${k.owner}` : ''
         const line2 = who
           ? k.followers > 1
@@ -212,7 +215,7 @@ function renderWatch(): void {
             `<button class="icon pub ${k.public ? 'on' : ''}" type="button" ${off} title="${a}" aria-label="${a}" aria-pressed="${k.public}" data-act="${k.public ? 'private' : 'public'}" data-id="${id}">${ICON.globe}</button>`,
           )
         }
-        return `<div class="row"><div class="grow"><div class="l1">${esc(up(k.word))}${chip}</div><div class="l2">${esc(line2)}</div></div><div class="acts">${acts.join('')}</div></div>`
+        return `<div class="row"><div class="grow"><div class="l1 kw"><span class="kwt">${esc(up(k.word))}</span>${chip}</div><div class="l2">${esc(line2)}</div></div><div class="acts">${acts.join('')}</div></div>`
       })
       .join('') ||
     `<div class="empty">${signed ? 'No keywords yet' : 'Log in to follow'}</div>`
@@ -292,7 +295,7 @@ function renderSearch(): void {
       : !q || certsState !== 'ready'
         ? totalLine(total)
         : total
-          ? `${total} match${total === 1 ? '' : 'es'}${word ? watchBtn(word) : ''}`
+          ? `${num(total)} match${total === 1 ? '' : 'es'}${word ? watchBtn(word) : ''}`
           : ''
 
   pager('sPager', 's', total, () => void loadSearch())

@@ -44,17 +44,10 @@ export type WatchActRsp = WatchRsp | ErrorRsp
 /** Follow limit per user (mods: no limit). */
 export const MAX_FOLLOW = 3
 
-const STOP = new Set(
-  'the of and a an in on to is it my i me we you he she his her love man life story part movie film'.split(
-    ' ',
-  ),
-)
-
 /** Why a keyword is refused, or '' when it is fine. */
 export function keywordError(k: string): string {
-  if (!/^[a-z0-9]{2,20}$/.test(k)) return '2–20 letters or digits'
-  if (STOP.has(k)) return 'Too common, try another'
-  return ''
+  // no "too common" list: the alert limits (2 an hour, 8 a day, then grouped) keep any keyword quiet
+  return /^[a-z0-9]{2,20}$/.test(k) ? '' : '2–20 letters or digits'
 }
 
 /** Title or query → lowercase letters and digits only. */

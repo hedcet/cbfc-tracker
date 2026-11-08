@@ -235,7 +235,18 @@
       font-size: 18px;
       padding: 0 4px;
     }
+    /* keyword + "16.2K new ›": the keyword gets the "…", the chip never shrinks */
+    .l1.kw {
+      display: flex;
+      align-items: center;
+    }
+    .kwt {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
     .chip {
+      flex: none;
       margin-left: 8px;
       padding: 1px 8px;
       border-radius: var(--pill);

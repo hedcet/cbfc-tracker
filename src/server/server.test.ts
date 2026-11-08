@@ -329,7 +329,6 @@ test('watch: rules', async () => {
   user = {mod: false, name: 'bob'}
   const err = async (word: string): Promise<string> =>
     ((await watch({act: 'follow', word})) as {error: string}).error
-  assert.equal(await err('the'), 'Too common, try another')
   assert.equal(await err('x'), '2–20 letters or digits')
   for (const w of ['toxic', 'kantara', 'coolie'])
     assert.deepEqual(

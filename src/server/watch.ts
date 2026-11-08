@@ -194,7 +194,7 @@ function label(words: string[]): string {
  */
 function alertText(films: Film[]): string {
   const n = films.length
-  const head = `**${label([...new Set(films.flatMap(f => f.words))])}: ${n} new certificate${n === 1 ? '' : 's'}**`
+  const head = `**${label([...new Set(films.flatMap(f => f.words))])}: ${n.toLocaleString('en-IN')} new certificate${n === 1 ? '' : 's'}**`
   const groups = new Map<string, {lines: string[]; words: string[]}>()
   for (const {cert: c, words} of films) {
     const line = lineStart(
@@ -253,7 +253,7 @@ function notesText(notes: [string, State][], url: string): string {
 
 // "📦 **3 updates, grouped** · max 2 messages/hour" (or 8 messages/day)
 const digestHead = (n: number, m: Mode['m']): string =>
-  `📦 **${n} update${n === 1 ? '' : 's'}, grouped** · ${
+  `📦 **${n.toLocaleString('en-IN')} update${n === 1 ? '' : 's'}, grouped** · ${
     m === 'daily'
       ? `max ${PER_DAY} messages/day`
       : `max ${PER_HOUR} messages/hour`
