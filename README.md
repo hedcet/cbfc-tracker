@@ -24,7 +24,7 @@ Built for [r/kerala_boxoffice](https://www.reddit.com/r/kerala_boxoffice/). It w
 - Each user can follow up to 3 keywords.
 - "2 new" counts certificates issued since you followed. Tap it to see them in Search.
 - Anyone can add a keyword. Mods approve it (✓) before everyone sees it.
-- The person who added a keyword can delete it. A keyword disappears only when nobody follows it.
+- The person who added a keyword can remove it. If others still follow it, it stays and passes to the earliest follower; it disappears only when nobody follows it.
 
 ## Install (moderators)
 
@@ -36,7 +36,7 @@ Built for [r/kerala_boxoffice](https://www.reddit.com/r/kerala_boxoffice/). It w
 ### How data comes in
 
 - **Source post:** read every 15 minutes, and right away when `cbfc.js` edits it. Mods can also use **⋯ mod menu → "Sync CBFC data"** to read it now.
-- **Initial data:** imported when you save the settings. A wrong format is refused with a short message.
+- **Initial data:** checked when you save the settings (a wrong format is refused with a short message), then imported at the next sync, within 15 minutes, or right away with **"Sync CBFC data"**. The same text is never imported twice; clear the field after the import.
 - Only films are kept: 1 hour or longer, with a date that is not in the future.
 - Certificates are matched by Ref, so the same certificate is never stored twice.
 

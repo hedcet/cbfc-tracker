@@ -10,10 +10,11 @@ import {
   settings,
 } from '@devvit/web/server'
 import {
-  type CertsRsp,
   Endpoint,
   type ErrorRsp,
   type MeRsp,
+  type NewRsp,
+  type SearchRsp,
 } from '../shared/api.ts'
 import {onReq} from './server.ts'
 
@@ -23,6 +24,7 @@ let serverURL: string
 // in-memory stand-ins for Redis and settings
 const hashes = new Map<string, Map<string, string>>()
 const nums = new Map<string, number>()
+const strs = new Map<string, string>()
 const hash = (k: string): Map<string, string> => {
   if (!hashes.has(k)) hashes.set(k, new Map())
   return hashes.get(k) as Map<string, string>
@@ -35,6 +37,12 @@ Object.assign(redis, {
   },
   hGetAll: async (k: string) => Object.fromEntries(hash(k)),
   hLen: async (k: string) => hash(k).size,
+  get: async (k: string) =>
+    strs.get(k) ?? (nums.has(k) ? String(nums.get(k)) : undefined),
+  set: async (k: string, v: string) => {
+    strs.set(k, v)
+    return 'OK'
+  },
   incrBy: async (k: string, n: number) => {
     nums.set(k, (nums.get(k) ?? 0) + n)
     return nums.get(k)
@@ -44,8 +52,10 @@ const sourcePost = `| Title | Language | Category | Length | Ref | When |
 | - | - | - | - | - | - |
 | DRISHYAM 3 | Malayalam | UA 13+ | 2h 33m 2s | TVM/1/45/2026 | 2026-11-06 D2 |
 | A TRAILER | Tamil | U | 2m 10s | TRL/1/1/2026 | 2026-11-06 D2 |`
+let initialData = ''
 Object.assign(settings, {
-  get: async (k: string) => (k === 'trackerPost' ? 't3_src' : undefined),
+  get: async (k: string) =>
+    k === 'trackerPost' ? 't3_src' : k === 'initialData' ? initialData : '',
 })
 reddit.getPostById = async () => ({body: sourcePost}) as never
 
@@ -108,7 +118,7 @@ const post = (endpoint: string, body: unknown): Promise<Response> =>
     body: JSON.stringify(body),
   })
 
-test('initial data: imported on save, duplicates by ref skipped', async () => {
+test('initial data: checked on save, imported once by the next sync', async () => {
   const data = JSON.stringify([
     {
       ref: 'CHE/1/210/2026',
@@ -127,11 +137,13 @@ test('initial data: imported on save, duplicates by ref skipped', async () => {
       date: '2026-01-08',
     },
   ])
-  for (let i = 0; i < 2; i++) {
-    const rsp = await post(Endpoint.ValidateInitialData, {value: data})
-    assert.deepEqual(await rsp.json(), {success: true})
-  }
-  assert.equal(hash('certs').size, 1)
+  const rsp = await post(Endpoint.ValidateInitialData, {value: data})
+  assert.deepEqual(await rsp.json(), {success: true})
+  assert.equal(hash('certs').size, 0) // saving alone imports nothing
+  initialData = data
+  for (let i = 0; i < 2; i++) await post(Endpoint.OnSchedulerSync, {})
+  assert.equal(hash('certs').has('CHE/1/210/2026'), true)
+  assert.equal(strs.has('import'), true)
 })
 
 test('initial data: bad JSON is refused with a message', async () => {
@@ -139,16 +151,36 @@ test('initial data: bad JSON is refused with a message', async () => {
   assert.deepEqual(await rsp.json(), {success: false, error: 'Not valid JSON'})
 })
 
-test('sync reads the source post; films only', async () => {
+const get = async <T>(path: string): Promise<T> =>
+  (await (await fetch(`${serverURL}/${path}`)).json()) as T
+
+test('sync reads the source post; films only, newest first', async () => {
   const rsp = await post(Endpoint.OnSchedulerSync, {})
   assert.equal(rsp.status, 200)
-  const certs = (await (
-    await fetch(`${serverURL}/${Endpoint.Certs}`)
-  ).json()) as CertsRsp
-  assert.deepEqual(certs.certs.map(c => c[0]).sort(), [
-    'CHE/1/210/2026',
-    'TVM/1/45/2026',
-  ])
+  const all = await get<SearchRsp>(`${Endpoint.Search}?q=&page=0`)
+  assert.equal(all.total, 2)
+  assert.deepEqual(
+    all.certs.map(c => c[0]),
+    ['TVM/1/45/2026', 'CHE/1/210/2026'],
+  )
+})
+
+test('search: one page of matches, total and exact title', async () => {
+  const s = await get<SearchRsp>(`${Endpoint.Search}?q=drishyam&page=0`)
+  assert.equal(s.total, 1)
+  assert.equal(s.certs[0]?.[1], 'DRISHYAM 3')
+  assert.equal(s.exact, false)
+  const e = await get<SearchRsp>(`${Endpoint.Search}?q=arikomban&page=0`)
+  assert.equal(e.exact, true)
+  const none = await get<SearchRsp>(`${Endpoint.Search}?q=drisyam&page=0`)
+  assert.deepEqual([none.total, none.certs.length], [0, 0])
+})
+
+test('new: counts only certificates after the follow seq', async () => {
+  const n = await get<NewRsp>(
+    `${Endpoint.New}?k=${encodeURIComponent('drishyam:0,drishyam:999,arikomban:0')}`,
+  )
+  assert.deepEqual(n.counts, [1, 0, 0]) // imported rows (seq 0) are never new
 })
 
 test('source post: errors show in settings', async () => {

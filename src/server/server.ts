@@ -2,20 +2,22 @@ import type {IncomingMessage, ServerResponse} from 'node:http'
 import {context, reddit, settings} from '@devvit/web/server'
 import type {PartialJsonValue, UiResponse} from '@devvit/web/shared'
 import {
-  type CertsRsp,
   Endpoint,
   EndpointMethod,
   type ErrorRsp,
   type MeRsp,
+  type NewRsp,
+  type SearchRsp,
 } from '../shared/api.ts'
-import {parseTable, postId} from './certs.ts'
-import {allCerts, importJson, syncSource} from './store.ts'
+import {parseJson, parseTable, postId} from './certs.ts'
+import {importSetting, newCounts, searchCerts, syncSource} from './store.ts'
 
 type ValidationRsp = {success: boolean; error?: string}
 type EmptyRsp = Record<string, never>
 type AnyRsp =
   | MeRsp
-  | CertsRsp
+  | SearchRsp
+  | NewRsp
   | UiResponse
   | ValidationRsp
   | ErrorRsp
@@ -38,7 +40,9 @@ async function route(
   reqMsg: IncomingMessage,
   rspMsg: ServerResponse,
 ): Promise<void> {
-  const endpoint = reqMsg.url?.split('?')[0]?.slice(1) as Endpoint
+  const url = new URL(reqMsg.url ?? '/', 'http://localhost')
+  const endpoint = url.pathname.slice(1) as Endpoint
+  const query = url.searchParams
   const method = EndpointMethod[endpoint]
 
   let rsp: AnyRsp
@@ -49,8 +53,16 @@ async function route(
       case Endpoint.Me:
         rsp = await routeMe()
         break
-      case Endpoint.Certs:
-        rsp = {certs: await allCerts()}
+      case Endpoint.Search:
+        rsp = await searchCerts(
+          query.get('q') ?? '',
+          Number(query.get('page')) || 0,
+        )
+        break
+      case Endpoint.New:
+        rsp = await newCounts(
+          (query.get('k') ?? '').split(',').filter(Boolean).slice(0, 20),
+        )
         break
       case Endpoint.OnMenuNewPost:
         rsp = await routeMenuNewPost()
@@ -62,6 +74,7 @@ async function route(
         rsp = await routePostUpdate(await readJson(reqMsg))
         break
       case Endpoint.OnSchedulerSync:
+        await importSetting()
         await syncSource()
         rsp = {}
         break
@@ -108,6 +121,7 @@ async function routeMenuNewPost(): Promise<UiResponse> {
 
 // "Sync CBFC data" (mod menu): read the source post now.
 async function routeMenuSync(): Promise<UiResponse> {
+  await importSetting()
   const s = await syncSource()
   return {
     showToast: s.error
@@ -144,13 +158,13 @@ async function validateSourcePost(body: unknown): Promise<ValidationRsp> {
   return {success: true}
 }
 
-// Initial data is imported when the settings are saved; Ref decides duplicates.
+// Initial data is only checked here; the next sync imports it (once), so a
+// failed save never imports and other settings changes never re-import.
 async function validateInitialData(body: unknown): Promise<ValidationRsp> {
   const value = String((body as {value?: unknown}).value ?? '').trim()
   if (!value) return {success: true}
   try {
-    const {added, skipped} = await importJson(value)
-    console.log(`initial data: ${added} added, ${skipped} skipped`)
+    parseJson(value)
     return {success: true}
   } catch (err) {
     return {

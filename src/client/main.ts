@@ -1,10 +1,17 @@
-import {type CertsRsp, Endpoint, type MeRsp} from '../shared/api.ts'
+import {
+  type CertRow,
+  Endpoint,
+  type MeRsp,
+  type NewRsp,
+  norm,
+  PAGE,
+  type SearchRsp,
+} from '../shared/api.ts'
 
-// Search uses the real certificates stored by the server (source post + initial data).
+// Search asks the server for one page at a time (source post + initial data).
 // The watchlist still runs on demo keywords in the browser; v3 moves it to the server.
 
 /* ---------------- settings ---------------- */
-const PAGE = 6 // rows per page: fits the tall post
 const MAX_FOLLOW = 3 // v1 follow limit per user (mods: no limit)
 const KEYWORD = /^[a-z0-9]{2,20}$/ // one word; the longest word in any title is 18
 const STOP = new Set(
@@ -39,22 +46,7 @@ const esc = (s: string): string =>
         c
       ] ?? c,
   )
-const norm = (t: string): string => t.toLowerCase().replace(/[^0-9a-z]+/g, '')
 const up = (k: string): string => k.toUpperCase()
-
-// dates are IST, like CBFC
-const today = new Date().toLocaleDateString('en-CA', {
-  timeZone: 'Asia/Kolkata',
-})
-const when = (d: string): string => {
-  const k = Math.round((Date.parse(today) - Date.parse(d)) / 864e5)
-  return k > 0 ? `${d} D${k}` : d
-}
-const minutes = (len: string): number => {
-  const h = /(\d+)h/.exec(len)
-  const m = /(\d+)m(?!s)/.exec(len)
-  return (h ? 60 * Number(h[1]) : 0) + (m ? Number(m[1]) : 0)
-}
 
 const formatLength = (secs: number): string =>
   (
@@ -87,8 +79,12 @@ type Keyword = {
   addedAt: number
 }
 
-let films: Film[] = []
+let films: Film[] = [] // the search page on screen
+let total = 0 // all matches of the search
+let exact = false // a title equals the search
+let names: string[] = [] // placeholder examples from the newest films
 let certsState: 'loading' | 'ready' | 'error' = 'loading'
+let newCounts: Record<number, number> = {} // keyword id → new since follow
 
 let viewer = '' // set from the server; '' = logged out
 let isMod = false
@@ -125,20 +121,8 @@ const follows = (k: Keyword): boolean => viewer in k.subs
 const followerCount = (k: Keyword): number => Object.keys(k.subs).length
 const atLimit = (): boolean =>
   !isMod && keywords.filter(follows).length >= MAX_FOLLOW
-const isFilm = (f: Film): boolean => minutes(f.len) >= 60
-const newest = (list: Film[]): Film[] =>
-  list.slice().sort((a, b) => b.date.localeCompare(a.date) || b.seen - a.seen)
-const contains = (title: string, q: string): boolean => norm(title).includes(q)
-// 2 letters = whole title only; 3+ = contains
-const kwMatch = (title: string, k: string): boolean =>
-  k.length <= 2 ? norm(title) === k : contains(title, k)
-const newCount = (k: Keyword): number => {
-  const since = k.subs[viewer]
-  if (since === undefined) return 0
-  return films.filter(
-    f => isFilm(f) && f.seen > since && kwMatch(f.title, k.keyword),
-  ).length
-}
+const newCount = (k: Keyword): number =>
+  follows(k) ? (newCounts[k.id] ?? 0) : 0
 
 function keywordError(k: string): string {
   if (!KEYWORD.test(k))
@@ -152,8 +136,7 @@ function keywordError(k: string): string {
 function watchable(raw: string): string {
   const k = norm(raw)
   if (!loggedIn() || !KEYWORD.test(k) || STOP.has(k)) return ''
-  if (k.length <= 2 && !films.some(f => isFilm(f) && norm(f.title) === k))
-    return ''
+  if (k.length <= 2 && !exact) return ''
   const same = keywords.find(x => x.keyword === k)
   return same && follows(same) ? '' : k
 }
@@ -202,9 +185,6 @@ $('toastUndo').onclick = () => {
 }
 
 function placeholders(): void {
-  const names = films
-    .filter(f => isFilm(f) && /^[A-Z0-9]{5,14}$/.test(f.title))
-    .map(f => f.title)
   const pick = (): string =>
     names[Math.floor(Math.random() * names.length)] ?? 'DRISHYAM'
   $<HTMLInputElement>('wInput').placeholder = loggedIn()
@@ -324,6 +304,7 @@ function addKeyword(raw: string): boolean {
   placeholders()
   renderWatch()
   renderSearch()
+  void loadNew()
   return true
 }
 
@@ -341,6 +322,7 @@ function follow(k: Keyword): void {
   jumpTo(k)
   renderWatch()
   renderSearch()
+  void loadNew()
 }
 
 // stop following; ownership passes to the earliest follower; deleted only when nobody follows
@@ -353,12 +335,14 @@ function leave(k: Keyword): void {
   const first = left[0]
   if (!first) keywords.splice(index, 1)
   else if (wasOwner) k.owner = first[0]
-  toast(`${wasOwner ? 'Removed' : 'Unfollowed'} ${up(k.keyword)}`, () => {
+  // "Removed" only when it is really gone; otherwise it stays with the others
+  toast(`${first ? 'Unfollowed' : 'Removed'} ${up(k.keyword)}`, () => {
     if (atLimit()) return toast(`You can follow ${MAX_FOLLOW} for now`)
     Object.assign(k, before)
     if (!keywords.includes(k)) keywords.splice(index, 0, k)
     renderWatch()
     renderSearch()
+    void loadNew()
   })
   renderWatch()
   renderSearch()
@@ -375,21 +359,19 @@ function renderSearch(): void {
   const input = $<HTMLInputElement>('sInput')
   const raw = input.value
   const q = norm(raw)
-  const all = films.filter(isFilm)
-  const list = newest(q ? all.filter(f => contains(f.title, q)) : all)
   $('sClear').hidden = !raw
 
   const word = watchable(raw)
-  $('sCount').innerHTML = !q
-    ? totalLine(all.length)
-    : list.length
-      ? `${list.length} match${list.length === 1 ? '' : 'es'}${word ? ` · <a data-act="watch">Watch ${esc(up(word))}</a>` : ''}`
-      : ''
+  $('sCount').innerHTML =
+    !q || certsState !== 'ready'
+      ? totalLine(total)
+      : total
+        ? `${total} match${total === 1 ? '' : 'es'}${word ? ` · <a data-act="watch">Watch ${esc(up(word))}</a>` : ''}`
+        : ''
 
-  const start = pager('sPager', 's', list.length, renderSearch)
+  pager('sPager', 's', total, () => void loadSearch())
   $('sList').innerHTML =
-    list
-      .slice(start, start + PAGE)
+    films
       .map(
         f =>
           `<div class="row click" tabindex="0" data-act="sheet" data-ref="${esc(f.ref)}"><div class="grow"><div class="l1">${esc(f.title)}</div><div class="l2">${esc(`${f.lang} · ${f.cat} · ${f.len}`)}</div></div><span class="chev">›</span></div>`,
@@ -397,14 +379,14 @@ function renderSearch(): void {
       .join('') ||
     (!q
       ? ''
-      : `<div class="empty">Not certified yet${word ? `<br><button class="btn sm" type="button" data-act="watch">Watch ${esc(up(word))}</button>` : ''}</div>`)
+      : `<div class="empty">No matches${word ? `<br><button class="btn sm" type="button" data-act="watch">Watch ${esc(up(word))}</button>` : ''}</div>`)
 }
 
 // "12,377 films"
 function totalLine(n: number): string {
   if (certsState === 'loading') return 'Loading…'
   if (certsState === 'error')
-    return '<span class="err-text">Couldn’t load films</span>'
+    return '<span class="err-text">Couldn’t load films</span> · <a data-act="retry">Retry</a>'
   return n ? `${n.toLocaleString('en-IN')} films` : 'No films yet'
 }
 
@@ -418,7 +400,7 @@ function openSheet(ref: string, row: HTMLElement): void {
   $('sheetBody').innerHTML =
     field('Title', c.title, 'title') +
     `<div class="grid c3">${field('Language', c.lang)}${field('Category', c.cat)}${field('Length', c.len)}</div>` +
-    `<div class="grid c2">${field('Certificate no.', c.ref)}${field('When', when(c.date))}</div>`
+    `<div class="grid c2">${field('Certificate no.', c.ref)}${field('When', c.date)}</div>`
   sheetOpen = true
   lastFocus = row
   $('sheetBg').classList.add('on')
@@ -455,8 +437,13 @@ document.addEventListener('click', ev => {
         $<HTMLInputElement>('sInput').value = up(k.keyword)
         page.s = 0
         showTab('search')
-        renderSearch()
+        void loadSearch()
       }
+      break
+    case 'retry':
+      certsState = 'loading'
+      renderSearch()
+      void loadSearch()
       break
     case 'watch':
       addKeyword(norm($<HTMLInputElement>('sInput').value))
@@ -492,14 +479,17 @@ $('wInput').oninput = () => {
     renderWatch()
   }
 }
+let typing: ReturnType<typeof setTimeout> | undefined
 $('sInput').oninput = () => {
   page.s = 0
   renderSearch()
+  clearTimeout(typing)
+  typing = setTimeout(() => void loadSearch(), 250) // ask once typing pauses
 }
 $('sClear').onclick = () => {
   $<HTMLInputElement>('sInput').value = ''
   page.s = 0
-  renderSearch()
+  void loadSearch()
   $('sInput').focus()
 }
 
@@ -518,27 +508,63 @@ async function loadMe(): Promise<void> {
   }
 }
 
-async function loadCerts(): Promise<void> {
+const toFilm = ([ref, title, lang, cat, secs, date, seq]: CertRow): Film => ({
+  ref,
+  title,
+  lang,
+  cat,
+  len: formatLength(secs),
+  date,
+  seen: seq,
+})
+
+// one page of the search; an older answer that comes back late is ignored
+let asked = 0
+async function loadSearch(): Promise<void> {
+  const mine = ++asked
+  const q = norm($<HTMLInputElement>('sInput').value)
   try {
-    const rsp = await fetch(Endpoint.Certs, {
-      headers: {Accept: 'application/json'},
-    })
-    if (!rsp.ok) throw new Error(`certs ${rsp.status}`)
-    const data = (await rsp.json()) as CertsRsp
-    films = data.certs.map(([ref, title, lang, cat, secs, date, seq]) => ({
-      ref,
-      title,
-      lang,
-      cat,
-      len: formatLength(secs),
-      date,
-      seen: seq,
-    }))
-    clock = films.reduce((m, f) => Math.max(m, f.seen), 0)
+    const rsp = await fetch(
+      `${Endpoint.Search}?q=${encodeURIComponent(q)}&page=${page.s}`,
+      {headers: {Accept: 'application/json'}},
+    )
+    if (!rsp.ok) throw new Error(`search ${rsp.status}`)
+    const data = (await rsp.json()) as SearchRsp
+    if (mine !== asked) return
+    films = data.certs.map(toFilm)
+    total = data.total
+    exact = data.exact
+    clock = data.clock
+    if (!q && !names.length)
+      names = films
+        .filter(f => /^[A-Z0-9]{5,14}$/.test(f.title))
+        .map(f => f.title)
     certsState = 'ready'
   } catch (err) {
     console.error(err)
+    if (mine !== asked) return
     certsState = 'error'
+  }
+  renderSearch()
+}
+
+// "N new" for the keywords the viewer follows
+async function loadNew(): Promise<void> {
+  const mine = keywords.filter(follows)
+  if (!mine.length) return
+  try {
+    const k = mine.map(x => `${x.keyword}:${x.subs[viewer]}`).join(',')
+    const rsp = await fetch(`${Endpoint.New}?k=${encodeURIComponent(k)}`, {
+      headers: {Accept: 'application/json'},
+    })
+    if (!rsp.ok) throw new Error(`new ${rsp.status}`)
+    const data = (await rsp.json()) as NewRsp
+    newCounts = Object.fromEntries(
+      mine.map((x, i) => [x.id, data.counts[i] ?? 0]),
+    )
+    renderWatch()
+  } catch (err) {
+    console.error(err)
   }
 }
 
@@ -561,9 +587,10 @@ $('demo').hidden = true
 placeholders()
 renderWatch()
 renderSearch()
-void Promise.all([loadMe(), loadCerts()]).then(() => {
+void Promise.all([loadMe(), loadSearch()]).then(() => {
   demoFollows()
   placeholders()
   renderWatch()
   renderSearch()
+  void loadNew()
 })

@@ -39,7 +39,7 @@
       "initialData": {
         "type": "paragraph",
         "label": "Initial data (JSON)",
-        "helpText": "One-time import of older certificates",
+        "helpText": "One-time import of older certificates. Clear it after the import.",
         "defaultValue": "",
         "validationEndpoint": "/internal/settings/initial-data"
       }
