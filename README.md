@@ -11,6 +11,7 @@ Reddit (Devvit) app for following Indian CBFC film certificates. Built for [r/ke
 - **Alerts:** one modmail conversation from the subreddit: 🔔 when you follow, 🔕 when you unfollow, and each new matching certificate.
   - Busy times stay calm: after 2 messages in an hour (or 8 in a day), updates come together in one 📦 message per hour (or day), and instant alerts return once things quiet down.
   - Replies get a short automatic note (🤖) and the thread is archived, keeping modmail tidy. (Mods receive theirs as Mod Discussions.)
+- **Daily archive:** at 00:00 IST, one post listing every certificate received that day, in the source post's table format.
 
 ## Install (moderators)
 

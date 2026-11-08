@@ -561,6 +561,28 @@ test('archive: too long for one post is trimmed', async () => {
   assert.ok(text.length <= 40_000)
   assert.match(text, /\n\n…and \d+ more not shown$/)
   assert.match(text, /AD FILM 0 \\\| WITH A PIPE/)
+  // markdown in titles stays literal
+  const odd = archiveText([{...c, ref: 'X/1', title: '[AD] *NEW*_1'}])
+  assert.match(odd, /\| \\\[AD\\\] \\\*NEW\\\*\\_1 \|/)
+})
+
+test('archive: a failed post is tried again the next night', async () => {
+  reddit.getPostById = async () =>
+    ({
+      body: `${sourcePost}\n| SHORT AD | Hindi | U | 28s | AD/9/9/2026 | 2026-11-08 D1 |`,
+    }) as never
+  await post(Endpoint.OnSchedulerSync, {})
+  reddit.getPostById = async () => ({body: sourcePost}) as never
+  const submit = reddit.submitPost
+  reddit.submitPost = (async () => {
+    throw new Error('down')
+  }) as never
+  archiveOn = true
+  await post(Endpoint.OnSchedulerArchive, {}) // fails: nothing marked posted
+  reddit.submitPost = submit
+  await post(Endpoint.OnSchedulerArchive, {})
+  archiveOn = false
+  assert.match(posts.at(-1)?.text ?? '', /\| SHORT AD \| Hindi \| U \| 28s \|/)
 })
 
 test('source post: errors show in settings', async () => {

@@ -12,7 +12,7 @@ import {
   type WatchActRsp,
   type WatchReq,
 } from '../shared/api.ts'
-import {type Cert, isFilm} from './certs.ts'
+import {type Cert, isFilm, md} from './certs.ts'
 import {freshCounts, lastSeq} from './store.ts'
 
 // Redis layout
@@ -94,9 +94,6 @@ const BR = '  \n'
 
 // "2h 33m": messages show hours and minutes only
 const hm = (secs: number): string => formatLength(secs - (secs % 60))
-
-// Markdown: keep titles literal (also ^ superscript)
-const md = (s: string): string => s.replace(/[\\`*_~^[\]<>#|]/g, c => `\\${c}`)
 
 // a line starting "1." or "-"/"+" would turn into a list
 const lineStart = (s: string): string =>

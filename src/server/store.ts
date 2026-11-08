@@ -87,39 +87,6 @@ async function allCerts(): Promise<CertRow[]> {
   })
 }
 
-/** Items not in a daily post yet, in the source post's order (newest first). */
-export async function unposted(): Promise<Cert[]> {
-  return Object.entries(await redis.hGetAll(CERTS))
-    .map(([ref, json]) => [ref, JSON.parse(json) as Stored] as const)
-    .filter(([, s]) => !s[6])
-    .sort((a, b) => b[1][5] - a[1][5])
-    .map(([ref, [title, language, category, secs, date]]) => ({
-      category,
-      date,
-      language,
-      ref,
-      secs,
-      title,
-    }))
-}
-
-/** Marks items as posted in a daily post. */
-export async function markPosted(refs: string[]): Promise<void> {
-  for (let i = 0; i < refs.length; i += BATCH) {
-    const chunk = refs.slice(i, i + BATCH)
-    const rows = await redis.hMGet(CERTS, chunk)
-    const fields: Record<string, string> = {}
-    chunk.forEach((ref, j) => {
-      const json = rows[j]
-      if (!json) return
-      const s = JSON.parse(json) as Stored
-      s[6] = 1
-      fields[ref] = JSON.stringify(s)
-    })
-    if (Object.keys(fields).length) await redis.hSet(CERTS, fields)
-  }
-}
-
 // all certificates, newest first, with normalized titles; reloaded only after an add
 // names: one-word titles, used as placeholder examples (also valid keywords)
 type Cache = {ver: string; rows: CertRow[]; titles: string[]; names: string[]}
@@ -233,4 +200,37 @@ export async function syncIfStale(): Promise<Cert[]> {
   if (await redis.get(FRESH)) return []
   await redis.set(FRESH, '1', {expiration: new Date(Date.now() + FRESH_MS)})
   return (await syncSource()).added
+}
+
+/** Items not in a daily post yet, in the source post's order (newest first). */
+export async function unposted(): Promise<Cert[]> {
+  return Object.entries(await redis.hGetAll(CERTS))
+    .map(([ref, json]) => [ref, JSON.parse(json) as Stored] as const)
+    .filter(([, s]) => !s[6])
+    .sort((a, b) => b[1][5] - a[1][5])
+    .map(([ref, [title, language, category, secs, date]]) => ({
+      category,
+      date,
+      language,
+      ref,
+      secs,
+      title,
+    }))
+}
+
+/** Marks items as posted in a daily post. */
+export async function markPosted(refs: string[]): Promise<void> {
+  for (let i = 0; i < refs.length; i += BATCH) {
+    const chunk = refs.slice(i, i + BATCH)
+    const rows = await redis.hMGet(CERTS, chunk)
+    const fields: Record<string, string> = {}
+    chunk.forEach((ref, j) => {
+      const json = rows[j]
+      if (!json) return
+      const s = JSON.parse(json) as Stored
+      s[6] = 1
+      fields[ref] = JSON.stringify(s)
+    })
+    if (Object.keys(fields).length) await redis.hSet(CERTS, fields)
+  }
 }

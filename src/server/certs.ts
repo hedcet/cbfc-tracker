@@ -15,6 +15,10 @@ const DATE = /^\d{4}-\d{2}-\d{2}$/
 const FILM_SECS = 3600
 export const isFilm = (secs: number): boolean => secs >= FILM_SECS
 
+/** Markdown: keep text literal (links, bold, superscript, table pipes…). */
+export const md = (s: string): string =>
+  s.replace(/[\\`*_~^[\]<>#|]/g, c => `\\${c}`)
+
 /** "2h 7s", "2h 33m 2s" (source post) or "120.07" (CBFC portal MM.SS) → seconds. */
 export function parseLength(text: string): number {
   const s = text.trim()

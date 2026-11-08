@@ -2,7 +2,7 @@
 
 import {context, reddit, settings} from '@devvit/web/server'
 import {formatLength} from '../shared/api.ts'
-import {type Cert, todayIST} from './certs.ts'
+import {type Cert, md, todayIST} from './certs.ts'
 import {markPosted, unposted} from './store.ts'
 
 // a Reddit post holds 40,000 characters; keep room for the last line
@@ -11,15 +11,12 @@ const MAX_CHARS = 39_900
 const HEAD =
   '| Title | Language | Category | Length | Ref | When |\n|---|---|---|---|---|---|'
 
-// a pipe inside a cell would split the table row
-const cell = (s: string): string => s.replace(/\|/g, '\\|')
-
 /** The table in the source post's format (When = date); trimmed to fit one post. */
 export function archiveText(certs: Cert[]): string {
   let text = HEAD
   let shown = 0
   for (const c of certs) {
-    const row = `\n| ${[c.title, c.language, c.category, formatLength(c.secs), c.ref, c.date].map(cell).join(' | ')} |`
+    const row = `\n| ${[c.title, c.language, c.category, formatLength(c.secs), c.ref, c.date].map(md).join(' | ')} |`
     if (text.length + row.length > MAX_CHARS) break
     text += row
     shown++
