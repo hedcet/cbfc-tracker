@@ -392,7 +392,7 @@ function renderSearch(): void {
       .slice(start, start + PAGE)
       .map(
         f =>
-          `<div class="row click" tabindex="0" data-act="sheet" data-ref="${esc(f.ref)}"><div class="grow"><div class="l1">${esc(f.title)}</div><div class="l2">${esc(`${f.lang} · ${f.cat} · ${f.len}`)}</div></div><span class="chev">›</span></div>`,
+          `<div class="row click" tabindex="0" data-act="sheet" data-ref="${esc(f.ref)}"><div class="grow"><div class="l1">${esc(f.title)}</div><div class="l2">${esc(`${f.lang} · ${f.cat} · ${f.len} · ${f.date}`)}</div></div><span class="chev">›</span></div>`,
       )
       .join('') ||
     (!q

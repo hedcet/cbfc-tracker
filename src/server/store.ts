@@ -40,7 +40,8 @@ export async function addCerts(
     todo.sort((a, b) =>
       (fresh.get(a)?.date ?? '').localeCompare(fresh.get(b)?.date ?? ''),
     )
-    const last = await redis.incrBy(SEQ, todo.length)
+    // imported (archived) rows are old: seq 0, so they never count as new for a keyword
+    const last = archived ? 0 : await redis.incrBy(SEQ, todo.length)
     const fields: Record<string, string> = {}
     todo.forEach((ref, j) => {
       const c = fresh.get(ref) as Cert
@@ -50,7 +51,7 @@ export async function addCerts(
         c.category,
         c.secs,
         c.date,
-        last - todo.length + j + 1,
+        archived ? 0 : last - todo.length + j + 1,
         archived ? 1 : 0,
       ]
       fields[ref] = JSON.stringify(row)
