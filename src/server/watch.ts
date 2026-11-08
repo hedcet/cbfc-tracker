@@ -74,6 +74,16 @@ async function trackerUrl(): Promise<string> {
   return id ? `${sub}comments/${id.replace(/^t3_/, '')}/` : sub
 }
 
+// keeps the mods' inbox clean; mod recipients land in Mod Discussions,
+// which cannot be archived: that is fine, the message is already sent
+async function archive(id: string): Promise<void> {
+  try {
+    await reddit.modMail.archiveConversation(id)
+  } catch {
+    // not archivable
+  }
+}
+
 /** One modmail conversation per user; each message is a reply in it, then archived. */
 async function send(user: string, body: string): Promise<void> {
   const sub = context.subredditName
@@ -111,17 +121,7 @@ async function send(user: string, body: string): Promise<void> {
   }
 }
 
-// keeps the mods' inbox clean; mod recipients land in Mod Discussions,
-// which cannot be archived: that is fine, the message is already sent
-async function archive(id: string): Promise<void> {
-  try {
-    await reddit.modMail.archiveConversation(id)
-  } catch {
-    // not archivable
-  }
-}
-
-export async function welcomeText(word: string): Promise<string> {
+async function welcomeText(word: string): Promise<string> {
   const url = await trackerUrl()
   return [
     `**Keyword added: ${up(word)}**`,
@@ -130,14 +130,20 @@ export async function welcomeText(word: string): Promise<string> {
   ].join(BR)
 }
 
-export const goodbyeText = (word: string): string =>
+const goodbyeText = (word: string): string =>
   [
     `**Keyword removed: ${up(word)}**`,
     `🔕 Alerts **OFF** for titles containing ${up(word)}.`,
   ].join(BR)
 
+const replyText = (): string =>
+  [
+    '🤖 **This is an automated alerts thread**',
+    'Replies here aren’t read, sorry.',
+  ].join(BR)
+
 /** "DRISHYAM, TOXIC: 3 new certificates", then films grouped by their keywords. */
-export function alertText(films: {cert: Cert; words: string[]}[]): string {
+function alertText(films: {cert: Cert; words: string[]}[]): string {
   const words = [...new Set(films.flatMap(f => f.words))].map(up)
   const n = films.length
   const groups = new Map<string, string[]>()
@@ -287,12 +293,6 @@ export async function watch(body: Partial<WatchReq>): Promise<WatchActRsp> {
   }
   return {keywords: await list(me)}
 }
-
-export const replyText = (): string =>
-  [
-    '🤖 **This is an automated alerts thread**',
-    'Replies here aren’t read, sorry.',
-  ].join(BR)
 
 /** A user replied in their alerts conversation: answer (once a day), archive again. */
 export async function onModMail(body: unknown): Promise<void> {
