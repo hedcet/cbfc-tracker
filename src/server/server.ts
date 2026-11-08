@@ -102,11 +102,11 @@ async function route(
 
 async function routeMe(): Promise<MeRsp> {
   const user = await reddit.getCurrentUser()
-  if (!user) return {username: null, isMod: false}
+  if (!user) return {isMod: false, username: null}
   const perms = context.subredditName
     ? await user.getModPermissionsForSubreddit(context.subredditName)
     : []
-  return {username: user.username, isMod: perms.length > 0}
+  return {isMod: perms.length > 0, username: user.username}
 }
 
 // "Add CBFC Tracker" (mod menu): one tool post per subreddit; the title comes
@@ -118,8 +118,8 @@ async function routeMenuNewPost(): Promise<UiResponse> {
       const post = await reddit.getPostById(old as `t3_${string}`)
       if (!post.removed && post.authorName !== '[deleted]')
         return {
-          showToast: {text: 'Tracker already added', appearance: 'neutral'},
           navigateTo: post.url,
+          showToast: {appearance: 'neutral', text: 'Tracker already added'},
         }
     } catch {
       // gone: make a new one
@@ -131,8 +131,8 @@ async function routeMenuNewPost(): Promise<UiResponse> {
   const post = await reddit.submitCustomPost({title})
   await redis.set(TOOL_POST, post.id)
   return {
-    showToast: {text: 'CBFC Tracker added', appearance: 'success'},
     navigateTo: post.url,
+    showToast: {appearance: 'success', text: 'CBFC Tracker added'},
   }
 }
 
@@ -142,10 +142,10 @@ async function routeMenuSync(): Promise<UiResponse> {
   const s = await syncSource()
   return {
     showToast: s.error
-      ? {text: s.error, appearance: 'neutral'}
+      ? {appearance: 'neutral', text: s.error}
       : {
-          text: `${s.total.toLocaleString('en-IN')} films · ${s.added} new`,
           appearance: 'success',
+          text: `${s.total.toLocaleString('en-IN')} films · ${s.added} new`,
         },
   }
 }
@@ -163,15 +163,15 @@ async function validateSourcePost(body: unknown): Promise<ValidationRsp> {
   const value = String((body as {value?: unknown}).value ?? '').trim()
   if (!value) return {success: true} // optional: without it, the tool is search only
   const id = postId(value)
-  if (!id) return {success: false, error: 'Post ID only, like 123456'}
+  if (!id) return {error: 'Post ID only, like 123456', success: false}
   let text = ''
   try {
     text = (await reddit.getPostById(id as `t3_${string}`)).body ?? ''
   } catch {
-    return {success: false, error: 'Post not found'}
+    return {error: 'Post not found', success: false}
   }
   if (!parseTable(text).length)
-    return {success: false, error: 'No certificate table found'}
+    return {error: 'No certificate table found', success: false}
   return {success: true}
 }
 
@@ -185,8 +185,8 @@ async function validateInitialData(body: unknown): Promise<ValidationRsp> {
     return {success: true}
   } catch (err) {
     return {
-      success: false,
       error: err instanceof Error ? err.message : String(err),
+      success: false,
     }
   }
 }

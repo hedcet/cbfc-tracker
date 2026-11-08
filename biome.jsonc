@@ -1,5 +1,8 @@
 {
   "$schema": "https://biomejs.dev/schemas/2.6.4/schema.json",
+  "assist": {
+    "actions": {"source": {"organizeImports": "on", "useSortedKeys": "on"}}
+  },
   "css": {"formatter": {"enabled": true, "quoteStyle": "single"}},
   "files": {"includes": ["**", "!dist/", "!public/*.js*"]},
   "formatter": {
@@ -33,5 +36,5 @@
       "suspicious": {"noImplicitAnyLet": "off"}
     }
   },
-  "vcs": {"enabled": true, "clientKind": "git", "useIgnoreFile": true}
+  "vcs": {"clientKind": "git", "enabled": true, "useIgnoreFile": true}
 }

@@ -7,7 +7,6 @@ import {
   norm,
   PAGE,
   type SearchRsp,
-  type SyncInfo,
 } from '../shared/api.ts'
 import {
   type Cert,
@@ -22,22 +21,17 @@ import {
 //   certs      hash  ref → JSON [title, language, category, secs, date, seq, archived 0|1]
 //   certs:seq  int   order in which certificates were first seen
 //   certs:ver  int   bumped on every add; the search cache reloads when it changes
-//   sync       hash  at, added, total, error (last source post read)
 //   import     str   hash of the initial data last imported
 const CERTS = 'certs'
 const SEQ = 'certs:seq'
 const VER = 'certs:ver'
-const SYNC = 'sync'
 const IMPORT = 'import'
 const BATCH = 500
 
 type Stored = [string, string, string, number, string, number, 0 | 1]
 
 /** Adds certificates not stored yet (matched by Ref). Returns how many were added. */
-export async function addCerts(
-  list: Cert[],
-  archived: boolean,
-): Promise<number> {
+async function addCerts(list: Cert[], archived: boolean): Promise<number> {
   const today = todayIST()
   const fresh = new Map<string, Cert>()
   for (const c of list)
@@ -76,8 +70,7 @@ export async function addCerts(
   return added
 }
 
-/** All certificates for the client: [ref, title, language, category, secs, date, seq]. */
-export async function allCerts(): Promise<CertRow[]> {
+async function allCerts(): Promise<CertRow[]> {
   const all = await redis.hGetAll(CERTS)
   return Object.entries(all).map(([ref, json]) => {
     const [title, language, category, secs, date, seq] = JSON.parse(
@@ -98,10 +91,10 @@ async function sorted(): Promise<Cache> {
       (a, b) => b[5].localeCompare(a[5]) || b[6] - a[6],
     )
     cache = {
-      ver,
+      names: rows.map(r => r[1]).filter(t => /^[A-Z0-9]{5,14}$/.test(t)),
       rows,
       titles: rows.map(r => norm(r[1])),
-      names: rows.map(r => r[1]).filter(t => /^[A-Z0-9]{5,14}$/.test(t)),
+      ver,
     }
   }
   return cache
@@ -116,11 +109,11 @@ export async function searchCerts(q: string, page: number): Promise<SearchRsp> {
   const hits = k ? rows.filter((_, i) => titles[i]?.includes(k)) : rows
   const start = Math.max(0, page) * PAGE
   return {
-    total: hits.length,
     certs: hits.slice(start, start + PAGE),
-    exact: !!k && titles.includes(k),
     clock: rows.reduce((m, r) => Math.max(m, r[6]), 0),
+    exact: !!k && titles.includes(k),
     hints: [pick(), pick()],
+    total: hits.length,
   }
 }
 
@@ -146,8 +139,9 @@ export async function importSetting(): Promise<void> {
   const sum = createHash('sha1').update(text).digest('hex')
   if ((await redis.get(IMPORT)) === sum) return
   try {
-    const {added, skipped} = await importJson(text)
-    console.log(`initial data: ${added} added, ${skipped} skipped`)
+    const list = parseJson(text)
+    const added = await addCerts(list, true) // imported rows count as archived
+    console.log(`initial data: ${added} added, ${list.length - added} skipped`)
     await redis.set(IMPORT, sum)
   } catch (err) {
     console.error(err)
@@ -155,7 +149,11 @@ export async function importSetting(): Promise<void> {
 }
 
 /** Reads the source post set in settings and stores new certificates. */
-export async function syncSource(): Promise<SyncInfo> {
+export async function syncSource(): Promise<{
+  added: number
+  total: number
+  error: string
+}> {
   const link = (await settings.get<string>('trackerPost')) ?? ''
   const id = postId(link)
   let added = 0
@@ -175,40 +173,9 @@ export async function syncSource(): Promise<SyncInfo> {
       error = 'Source post not found'
     }
   }
-  const info: SyncInfo = {
-    at: Date.now(),
-    added,
-    total: await redis.hLen(CERTS),
-    error,
-  }
+  const total = await redis.hLen(CERTS)
   console.log(
-    `source post: ${added} added, ${info.total} total${error ? `, ${error}` : ''}`,
+    `source post: ${added} added, ${total} total${error ? `, ${error}` : ''}`,
   )
-  await redis.hSet(SYNC, {
-    at: String(info.at),
-    added: String(added),
-    total: String(info.total),
-    error,
-  })
-  return info
-}
-
-export async function lastSync(): Promise<SyncInfo | null> {
-  const s = await redis.hGetAll(SYNC)
-  if (!s.at) return null
-  return {
-    at: Number(s.at),
-    added: Number(s.added),
-    total: Number(s.total),
-    error: s.error ?? '',
-  }
-}
-
-/** Imports the initial data JSON; these count as already archived. */
-export async function importJson(
-  text: string,
-): Promise<{added: number; skipped: number}> {
-  const list = parseJson(text)
-  const added = await addCerts(list, true)
-  return {added, skipped: list.length - added}
+  return {added, error, total}
 }

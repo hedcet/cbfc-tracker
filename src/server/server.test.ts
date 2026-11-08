@@ -30,22 +30,22 @@ const hash = (k: string): Map<string, string> => {
   return hashes.get(k) as Map<string, string>
 }
 Object.assign(redis, {
+  get: async (k: string) =>
+    strs.get(k) ?? (nums.has(k) ? String(nums.get(k)) : undefined),
+  hGetAll: async (k: string) => Object.fromEntries(hash(k)),
+  hLen: async (k: string) => hash(k).size,
   hMGet: async (k: string, f: string[]) => f.map(x => hash(k).get(x) ?? null),
   hSet: async (k: string, o: Record<string, string>) => {
     for (const [f, v] of Object.entries(o)) hash(k).set(f, v)
     return Object.keys(o).length
   },
-  hGetAll: async (k: string) => Object.fromEntries(hash(k)),
-  hLen: async (k: string) => hash(k).size,
-  get: async (k: string) =>
-    strs.get(k) ?? (nums.has(k) ? String(nums.get(k)) : undefined),
-  set: async (k: string, v: string) => {
-    strs.set(k, v)
-    return 'OK'
-  },
   incrBy: async (k: string, n: number) => {
     nums.set(k, (nums.get(k) ?? 0) + n)
     return nums.get(k)
+  },
+  set: async (k: string, v: string) => {
+    strs.set(k, v)
+    return 'OK'
   },
 })
 const sourcePost = `| Title | Language | Category | Length | Ref | When |
@@ -62,8 +62,8 @@ reddit.getPostById = async () => ({body: sourcePost}) as never
 before(async () => {
   reddit.getCurrentUser = async () =>
     ({
-      username: 'username',
       getModPermissionsForSubreddit: async () => ['all'],
+      username: 'username',
     }) as never
   server = createServer(async (req, rsp) => {
     await runWithContext(
@@ -94,7 +94,7 @@ after(async () => {
 test('me', async () => {
   const rsp = await fetch(`${serverURL}/${Endpoint.Me}`)
   assert.equal(rsp.status, 200)
-  assert.deepEqual<MeRsp>(await rsp.json(), {username: 'username', isMod: true})
+  assert.deepEqual<MeRsp>(await rsp.json(), {isMod: true, username: 'username'})
 })
 
 test('wrong method', async () => {
@@ -113,28 +113,28 @@ test('404', async () => {
 
 const post = (endpoint: string, body: unknown): Promise<Response> =>
   fetch(`${serverURL}/${endpoint}`, {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
     body: JSON.stringify(body),
+    headers: {'Content-Type': 'application/json'},
+    method: 'POST',
   })
 
 test('initial data: checked on save, imported once by the next sync', async () => {
   const data = JSON.stringify([
     {
+      category: 'UA 13+',
+      date: '2026-01-08',
+      language: 'Tamil',
+      length: '2h 7s',
       ref: 'CHE/1/210/2026',
       title: 'ARIKOMBAN',
-      language: 'Tamil',
-      category: 'UA 13+',
-      length: '2h 7s',
-      date: '2026-01-08',
     },
     {
+      category: 'UA 13+',
+      date: '2026-01-08',
+      language: 'Tamil',
+      length: '2h 7s',
       ref: 'CHE/1/210/2026',
       title: 'ARIKOMBAN',
-      language: 'Tamil',
-      category: 'UA 13+',
-      length: '2h 7s',
-      date: '2026-01-08',
     },
   ])
   const rsp = await post(Endpoint.ValidateInitialData, {value: data})
@@ -190,22 +190,22 @@ test('source post: errors show in settings', async () => {
     (await post(Endpoint.ValidateSourcePost, {value})).json()
   assert.deepEqual(await check(''), {success: true})
   assert.deepEqual(await check('not a post'), {
-    success: false,
     error: 'Post ID only, like 123456',
+    success: false,
   })
   assert.deepEqual(await check('t3_src'), {success: true})
   const real = reddit.getPostById
   reddit.getPostById = async () => ({body: 'hello'}) as never
   assert.deepEqual(await check('t3_src'), {
-    success: false,
     error: 'No certificate table found',
+    success: false,
   })
   reddit.getPostById = async () => {
     throw new Error('404')
   }
   assert.deepEqual(await check('t3_src'), {
-    success: false,
     error: 'Post not found',
+    success: false,
   })
   reddit.getPostById = real
 })

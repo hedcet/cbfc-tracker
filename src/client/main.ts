@@ -2,6 +2,7 @@ import {showToast} from '@devvit/web/client'
 import {
   type CertRow,
   Endpoint,
+  formatLength,
   type MeRsp,
   type NewRsp,
   norm,
@@ -22,18 +23,18 @@ const STOP = new Set(
 )
 
 const ICON = {
-  star: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.3 6.4 20.2l1.1-6.2L3 9.6l6.2-.9z"/></svg>',
-  search:
-    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>',
   bell: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg>',
   bellOn:
     '<svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0" fill="none"/></svg>',
-  trash:
-    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6"/></svg>',
   check:
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5L20 7"/></svg>',
   close:
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>',
+  search:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>',
+  star: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.3 6.4 20.2l1.1-6.2L3 9.6l6.2-.9z"/></svg>',
+  trash:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6"/></svg>',
 }
 
 /* ---------------- helpers ---------------- */
@@ -43,23 +44,11 @@ const esc = (s: string): string =>
   s.replace(
     /[&<>"']/g,
     c =>
-      ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'})[
+      ({"'": '&#39;', '"': '&quot;', '&': '&amp;', '<': '&lt;', '>': '&gt;'})[
         c
       ] ?? c,
   )
 const up = (k: string): string => k.toUpperCase()
-
-const formatLength = (secs: number): string =>
-  (
-    [
-      [Math.floor(secs / 3600), 'h'],
-      [Math.floor(secs / 60) % 60, 'm'],
-      [secs % 60, 's'],
-    ] as [number, string][]
-  )
-    .filter(([n]) => n)
-    .map(([n, u]) => `${n}${u}`)
-    .join(' ')
 
 /* ---------------- data ---------------- */
 type Film = {
@@ -69,7 +58,6 @@ type Film = {
   lang: string
   title: string
   cat: string
-  seen: number
 }
 type Keyword = {
   id: number
@@ -97,12 +85,12 @@ const kw = (
   subs: Record<string, number>,
   approved: boolean,
 ): Keyword => ({
+  addedAt: nextId,
+  approved,
   id: ++nextId,
   keyword,
   owner,
   subs,
-  approved,
-  addedAt: nextId,
 })
 const keywords: Keyword[] = [
   kw('arikomban', 'u/a1', {'u/a1': 0}, true),
@@ -117,7 +105,7 @@ const keywords: Keyword[] = [
 let clock = 0 // newest certificate seq; "N new" counts what came after a follow
 
 /* ---------------- rules ---------------- */
-const page = {w: 0, s: 0}
+const page = {s: 0, w: 0}
 const loggedIn = (): boolean => !!viewer
 const follows = (k: Keyword): boolean => viewer in k.subs
 const followerCount = (k: Keyword): number => Object.keys(k.subs).length
@@ -509,14 +497,13 @@ async function loadMe(): Promise<void> {
   }
 }
 
-const toFilm = ([ref, title, lang, cat, secs, date, seq]: CertRow): Film => ({
+const toFilm = ([ref, title, lang, cat, secs, date]: CertRow): Film => ({
+  cat,
+  date,
+  lang,
+  len: formatLength(secs),
   ref,
   title,
-  lang,
-  cat,
-  len: formatLength(secs),
-  date,
-  seen: seq,
 })
 
 // one page of the search; an older answer that comes back late is ignored

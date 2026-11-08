@@ -1,6 +1,31 @@
 {
   "$schema": "https://developers.reddit.com/schema/config-file.v1.json",
+  "dev": {
+    "subreddit": "cbfc_tracker_dev"
+  },
+  "menu": {
+    "items": [
+      {
+        "description": "Open or create tracker",
+        "endpoint": "/internal/on/menu/new-post",
+        "forUserType": "moderator",
+        "label": "Add CBFC Tracker",
+        "location": "subreddit"
+      },
+      {
+        "description": "Check for new certificates",
+        "endpoint": "/internal/on/menu/sync",
+        "forUserType": "moderator",
+        "label": "Sync CBFC data",
+        "location": "subreddit"
+      }
+    ]
+  },
   "name": "cbfc-tracker",
+  "permissions": {
+    "reddit": true,
+    "redis": true
+  },
   "post": {
     "entrypoints": {
       "default": {
@@ -9,75 +34,44 @@
       }
     }
   },
-  "server": {},
-  "permissions": {
-    "redis": true,
-    "reddit": true
-  },
-  "settings": {
-    "subreddit": {
-      "postTitle": {
-        "type": "string",
-        "label": "Title",
-        "helpText": "Shown as the post title",
-        "defaultValue": "🎬 CBFC Certificates: Search & Watchlist (Unofficial)"
-      },
-      "archive": {
-        "type": "boolean",
-        "label": "Daily archive (00:00 IST)",
-        "helpText": "Daily post of new certificates",
-        "defaultValue": true
-      },
-      "trackerPost": {
-        "type": "string",
-        "label": "Source post ID",
-        "helpText": "Optional: post to read new certificates from",
-        "placeholder": "123456",
-        "defaultValue": "",
-        "validationEndpoint": "/internal/settings/source-post"
-      },
-      "initialData": {
-        "type": "paragraph",
-        "label": "Initial data (JSON)",
-        "helpText": "One-time import; clear after",
-        "defaultValue": "",
-        "validationEndpoint": "/internal/settings/initial-data"
-      }
-    }
-  },
-  "menu": {
-    "items": [
-      {
-        "label": "Add CBFC Tracker",
-        "description": "Open or create tracker",
-        "location": "subreddit",
-        "forUserType": "moderator",
-        "endpoint": "/internal/on/menu/new-post"
-      },
-      {
-        "label": "Sync CBFC data",
-        "description": "Check for new certificates",
-        "location": "subreddit",
-        "forUserType": "moderator",
-        "endpoint": "/internal/on/menu/sync"
-      }
-    ]
-  },
-  "triggers": {
-    "onPostUpdate": "/internal/on/post-update"
-  },
   "scheduler": {
     "tasks": {
       "sync": {
-        "endpoint": "/internal/scheduler/sync",
-        "cron": "*/15 * * * *"
+        "cron": "*/15 * * * *",
+        "endpoint": "/internal/scheduler/sync"
       }
     }
   },
-  "dev": {
-    "subreddit": "cbfc_tracker_dev"
-  },
   "scripts": {
     "dev": "npm run watch"
+  },
+  "server": {},
+  "settings": {
+    "subreddit": {
+      "initialData": {
+        "defaultValue": "",
+        "helpText": "One-time import; clear after",
+        "label": "Initial data (JSON)",
+        "type": "paragraph",
+        "validationEndpoint": "/internal/settings/initial-data"
+      },
+      "postTitle": {
+        "defaultValue": "🎬 CBFC Certificates: Search & Watchlist (Unofficial)",
+        "helpText": "Shown as the post title",
+        "label": "Title",
+        "type": "string"
+      },
+      "trackerPost": {
+        "defaultValue": "",
+        "helpText": "Optional: post to read new certificates from",
+        "label": "Source post ID",
+        "placeholder": "123456",
+        "type": "string",
+        "validationEndpoint": "/internal/settings/source-post"
+      }
+    }
+  },
+  "triggers": {
+    "onPostUpdate": "/internal/on/post-update"
   }
 }

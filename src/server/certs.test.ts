@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict'
 import {test} from 'node:test'
+import {formatLength} from '../shared/api.ts'
 import {
   type Cert,
-  formatLength,
   isValid,
   parseJson,
   parseLength,
@@ -34,20 +34,20 @@ test('table: columns found by header, any order', () => {
 | CHE/1/210/2026 | 2026-11-06 D2 | A \\| B \\[x\\] | 2h 7s | U | Tamil |`
   assert.deepEqual<Cert[]>(parseTable(md), [
     {
-      ref: 'TVM/1/45/2026',
-      title: 'DRISHYAM 3',
-      language: 'Malayalam',
       category: 'UA 13+',
-      secs: 9182,
       date: '2026-11-08',
+      language: 'Malayalam',
+      ref: 'TVM/1/45/2026',
+      secs: 9182,
+      title: 'DRISHYAM 3',
     },
     {
-      ref: 'CHE/1/210/2026',
-      title: 'A | B [x]',
-      language: 'Tamil',
       category: 'U',
-      secs: 7207,
       date: '2026-11-06',
+      language: 'Tamil',
+      ref: 'CHE/1/210/2026',
+      secs: 7207,
+      title: 'A | B [x]',
     },
   ])
 })
@@ -61,12 +61,12 @@ test('json: same shape as the post', () => {
     '[{"ref":"CHE/1/210/2026","title":"ARIKOMBAN","language":"Tamil","category":"UA 13+","length":"2h 7s","date":"2026-11-08"}]',
   )
   assert.deepEqual(c, {
-    ref: 'CHE/1/210/2026',
-    title: 'ARIKOMBAN',
-    language: 'Tamil',
     category: 'UA 13+',
-    secs: 7207,
     date: '2026-11-08',
+    language: 'Tamil',
+    ref: 'CHE/1/210/2026',
+    secs: 7207,
+    title: 'ARIKOMBAN',
   })
 })
 
@@ -78,12 +78,12 @@ test('json: clear errors', () => {
 
 test('valid: films only, no future dates', () => {
   const c: Cert = {
-    ref: 'R',
-    title: 'T',
-    language: 'L',
     category: 'U',
-    secs: 3600,
     date: '2026-11-08',
+    language: 'L',
+    ref: 'R',
+    secs: 3600,
+    title: 'T',
   }
   assert.ok(isValid(c, '2026-11-08'))
   assert.ok(!isValid({...c, secs: 3599}, '2026-11-08'))

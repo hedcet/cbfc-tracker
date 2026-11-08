@@ -1,10 +1,18 @@
 {
-  // Only build references.
-  "files": [],
-  "references": [
-    {"path": "./src/client/"},
-    {"path": "./src/server/"},
-    {"path": "./src/shared/"},
-    {"path": "./src/test/"}
-  ]
+  "compilerOptions": {
+    "allowImportingTsExtensions": true,
+    "customConditions": ["server"],
+    "erasableSyntaxOnly": true,
+    "isolatedModules": true,
+    "lib": ["DOM", "ES2023", "ESNext.Disposable"],
+    "moduleResolution": "Bundler",
+    "noEmit": true,
+    "noUncheckedIndexedAccess": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "target": "ES2023",
+    "types": ["node"],
+    "verbatimModuleSyntax": true
+  },
+  "include": ["src/server/", "src/shared/"]
 }

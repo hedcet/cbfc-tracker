@@ -1,40 +1,9 @@
 {
-  "private": true,
-  "name": "cbfc-tracker",
-  "version": "2.0.0",
-  "description": "CBFC Certificates: Search & Watchlist for Reddit communities (unofficial)",
-  "keywords": [
-    "reddit",
-    "devvit",
-    "cbfc",
-    "movies",
-    "india"
-  ],
-  "homepage": "https://developers.reddit.com/apps/cbfc-tracker",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/hedcet/cbfc-tracker.git"
-  },
+  "author": "HedCET",
   "bugs": {
     "url": "https://github.com/hedcet/cbfc-tracker/issues"
   },
-  "author": "HedCET",
-  "license": "GPL-3.0-only",
-  "type": "module",
-  "scripts": {
-    "build": "npm run build:client -- --metafile=dist/client.meta.json --minify && npm run build:server -- --metafile=dist/server.meta.json --minify",
-    "build:client": "esbuild --bundle --log-level=warning --sourcemap=linked --target=es2023 --format=esm --outdir=public --platform=browser src/client/main.ts",
-    "build:server": "esbuild --bundle --log-level=warning --sourcemap=linked --target=es2023 --format=cjs --outdir=dist/server --platform=node src/server/index.ts",
-    "clean": "rm -rf dist/ public/*.js*",
-    "format": "npm run lint -- --fix",
-    "lint": "biome check --error-on-warnings",
-    "playtest": "devvit playtest",
-    "test": "npm run test:types && npm run lint && npm run test:unit && npm run build",
-    "test:types": "tsc --build",
-    "test:unit": "node --experimental-strip-types --no-warnings=ExperimentalWarning --test src/**/*.test.ts",
-    "upload": "npm run clean && npm run build && devvit upload",
-    "watch": "sh -c 'trap \"kill 0\" exit; npm run build:client -- --watch=forever& npm run build:server -- --watch=forever& wait' --"
-  },
+  "description": "CBFC Certificates: Search & Watchlist for Reddit communities (unofficial)",
   "devDependencies": {
     "@biomejs/biome": "2.6.4",
     "@devvit/web": "0.15.2",
@@ -46,6 +15,37 @@
   "engines": {
     "node": ">=24.0.0"
   },
+  "homepage": "https://developers.reddit.com/apps/cbfc-tracker",
+  "keywords": [
+    "reddit",
+    "devvit",
+    "cbfc",
+    "movies",
+    "india"
+  ],
+  "license": "GPL-3.0-only",
+  "name": "cbfc-tracker",
+  "private": true,
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hedcet/cbfc-tracker.git"
+  },
+  "scripts": {
+    "build": "npm run build:client -- --metafile=dist/client.meta.json --minify && npm run build:server -- --metafile=dist/server.meta.json --minify",
+    "build:client": "esbuild --bundle --log-level=warning --sourcemap=linked --target=es2023 --format=esm --outdir=public --platform=browser src/client/main.ts",
+    "build:server": "esbuild --bundle --log-level=warning --sourcemap=linked --target=es2023 --format=cjs --outdir=dist/server --platform=node src/server/index.ts",
+    "clean": "rm -rf dist/ public/*.js*",
+    "format": "npm run lint -- --fix",
+    "lint": "biome check --error-on-warnings",
+    "playtest": "devvit playtest",
+    "test": "npm run test:types && npm run lint && npm run test:unit && npm run build",
+    "test:types": "tsc && tsc -p src/client",
+    "test:unit": "node --experimental-strip-types --no-warnings=ExperimentalWarning --test src/**/*.test.ts",
+    "upload": "npm run clean && npm run build && devvit upload",
+    "watch": "sh -c 'trap \"kill 0\" exit; npm run build:client -- --watch=forever& npm run build:server -- --watch=forever& wait' --"
+  },
+  "type": "module",
+  "version": "2.0.0",
   "volta": {
     "node": "26.13.0"
   }

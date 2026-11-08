@@ -27,19 +27,6 @@ export function parseLength(text: string): number {
   return found ? secs : 0
 }
 
-/** Seconds → "2h 7s" (zero parts hidden), like the source post. */
-export function formatLength(secs: number): string {
-  const parts: [number, string][] = [
-    [Math.floor(secs / 3600), 'h'],
-    [Math.floor(secs / 60) % 60, 'm'],
-    [secs % 60, 's'],
-  ]
-  return parts
-    .filter(([n]) => n)
-    .map(([n, u]) => `${n}${u}`)
-    .join(' ')
-}
-
 /** Today in IST as YYYY-MM-DD. */
 export const todayIST = (now = new Date()): string =>
   now.toLocaleDateString('en-CA', {timeZone: 'Asia/Kolkata'})
@@ -84,11 +71,11 @@ export function parseTable(markdown: string): Cert[] {
   const names = cells(lines[head] ?? '').map(n => n.toLowerCase())
   const col = (name: string): number => names.indexOf(name)
   const at = {
-    title: col('title'),
-    language: col('language'),
     category: col('category'),
+    language: col('language'),
     length: col('length'),
     ref: col('ref'),
+    title: col('title'),
     when: col('when'),
   }
   if (Object.values(at).some(i => i < 0)) return []
@@ -97,12 +84,12 @@ export function parseTable(markdown: string): Cert[] {
     if (!line.trim().startsWith('|')) break
     const c = cells(line)
     certs.push({
-      ref: c[at.ref] ?? '',
-      title: c[at.title] ?? '',
-      language: c[at.language] ?? '',
       category: c[at.category] ?? '',
-      secs: parseLength(c[at.length] ?? ''),
       date: (c[at.when] ?? '').split(' ')[0] ?? '', // "2026-11-06 D2" → date
+      language: c[at.language] ?? '',
+      ref: c[at.ref] ?? '',
+      secs: parseLength(c[at.length] ?? ''),
+      title: c[at.title] ?? '',
     })
   }
   return certs
@@ -125,12 +112,12 @@ export function parseJson(text: string): Cert[] {
     for (const k of ['ref', 'title'])
       if (!str(k)) throw new Error(`Item ${i + 1}: "${k}" missing`)
     return {
-      ref: str('ref'),
-      title: str('title'),
-      language: str('language'),
       category: str('category'),
-      secs: parseLength(str('length')),
       date: str('date'),
+      language: str('language'),
+      ref: str('ref'),
+      secs: parseLength(str('length')),
+      title: str('title'),
     }
   })
 }
