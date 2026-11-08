@@ -72,6 +72,7 @@
     }
   },
   "triggers": {
+    "onModMail": "/internal/on/modmail",
     "onPostUpdate": "/internal/on/post-update"
   }
 }

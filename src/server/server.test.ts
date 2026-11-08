@@ -350,3 +350,27 @@ test('watch: mods (not archivable) still get one conversation', async () => {
   assert.equal(sent.filter(m => m.to === 'modx').length, 2)
   assert.equal([...convTo.values()].filter(u => u === 'modx').length, 1)
 })
+
+test('reply in an alerts thread: one automatic answer a day', async () => {
+  const conv = [...convTo].find(([, u]) => u === 'cat')?.[0] ?? ''
+  const before = sent.length
+  const reply = (
+    author = 'cat',
+    type = 'participant_user',
+  ): Promise<Response> =>
+    post(Endpoint.OnModMail, {
+      conversationId: conv,
+      messageAuthor: {name: author},
+      messageAuthorType: type,
+    })
+  await reply()
+  await reply() // same day: no second answer
+  await reply('cat', 'moderator') // our own message: ignored
+  const answers = sent.slice(before)
+  assert.equal(answers.length, 1)
+  assert.equal(answers[0]?.to, 'cat')
+  assert.equal(
+    answers[0]?.body,
+    '🤖 **This is an automated alerts thread**  \nReplies here aren’t read, sorry.',
+  )
+})

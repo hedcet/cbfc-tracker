@@ -21,6 +21,7 @@ import {
 } from './store.ts'
 import {
   notifyNew,
+  onModMail,
   postTitle,
   preview,
   TOOL_POST,
@@ -156,6 +157,10 @@ async function route(
         break
       case Endpoint.OnMenuNewPost:
         rsp = await routeMenuNewPost()
+        break
+      case Endpoint.OnModMail:
+        await onModMail(await readJson(reqMsg))
+        rsp = {}
         break
       case Endpoint.OnPostUpdate:
         rsp = await routePostUpdate(await readJson(reqMsg))

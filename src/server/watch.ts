@@ -22,11 +22,16 @@ import {freshCounts, lastSeq} from './store.ts'
 //   kw:<word>   hash  username → JSON [seq, at] (follow seq: "N new" counts after it)
 //   my:<user>   hash  word → '1' (keywords the user follows)
 //   dm:<user>   str   modmail conversation id of the user's alerts
+//   dmc:<id>    str   username of an alerts conversation (to answer replies)
+//   ack:<user>  str   set for a day after an automatic answer to a reply
 export const TOOL_POST = 'post'
 const KW = 'kw'
 const subs = (word: string): string => `kw:${word}`
 const mine = (user: string): string => `my:${user}`
 const dm = (user: string): string => `dm:${user}`
+// conversation ids come with or without a type prefix: compare the bare id
+const dmc = (id: string): string => `dmc:${id.replace(/^.*_/, '')}`
+const DAY_MS = 24 * 3600_000
 
 const DEFAULT_TITLE = '🎬 CBFC Certificates: Search & Watchlist (Unofficial)'
 
@@ -100,6 +105,7 @@ async function send(user: string, body: string): Promise<void> {
       if (!id) return
       await redis.set(dm(user), id)
     }
+    await redis.set(dmc(id), user)
     await archive(id)
   } catch (err) {
     console.error(`modmail to ${user}:`, err)
@@ -319,7 +325,43 @@ export async function preview(): Promise<UiResponse> {
       },
     ]),
     goodbyeText('toxic'),
+    replyText(),
   ])
     await send(me.username, body)
-  return {showToast: {appearance: 'success', text: 'Sent 5 sample messages'}}
+  return {showToast: {appearance: 'success', text: 'Sent 6 sample messages'}}
+}
+
+export const replyText = (): string =>
+  [
+    '🤖 **This is an automated alerts thread**',
+    'Replies here aren’t read, sorry.',
+  ].join(BR)
+
+/** A user replied in their alerts conversation: answer (once a day), archive again. */
+export async function onModMail(body: unknown): Promise<void> {
+  const e = body as {
+    conversationId?: string
+    messageAuthor?: {name?: string}
+    messageAuthorType?: string
+  }
+  if (e.messageAuthorType !== 'participant_user' || !e.conversationId) return
+  const user = await redis.get(dmc(e.conversationId))
+  if (!user || (e.messageAuthor?.name && e.messageAuthor.name !== user)) return
+  const id = await redis.get(dm(user))
+  if (!id) return
+  try {
+    if (!(await redis.get(`ack:${user}`))) {
+      await redis.set(`ack:${user}`, '1', {
+        expiration: new Date(Date.now() + DAY_MS),
+      })
+      await reddit.modMail.reply({
+        body: replyText(),
+        conversationId: id,
+        isAuthorHidden: true,
+      })
+    }
+  } catch (err) {
+    console.error(`auto reply to ${user}:`, err)
+  }
+  await archive(id)
 }
