@@ -39,7 +39,7 @@ Built for [r/kerala_boxoffice](https://www.reddit.com/r/kerala_boxoffice/). It w
 - **Initial data:** imported when you save the settings. A wrong format is refused with a short message.
 - Only films are kept: 1 hour or longer, with a date that is not in the future.
 - Certificates are matched by Ref, so the same certificate is never stored twice.
-- Mods see the state under the search box: "12,345 films · synced 10:42", or what is wrong, like "Source post not set".
+- Mods see the state under the search box: "12,345 films · source post read at 10:42", "source post read within 15 min" right after it is set, or what is wrong, like "Source post not set in settings".
 
 ## Settings
 

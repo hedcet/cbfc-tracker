@@ -81,7 +81,7 @@ export async function syncSource(): Promise<SyncInfo> {
   if (!id)
     error = link.trim()
       ? 'Source post link is not valid'
-      : 'Source post not set'
+      : 'Source post not set in settings'
   else {
     try {
       const post = await reddit.getPostById(id as `t3_${string}`)
@@ -126,4 +126,23 @@ export async function importJson(
   const list = parseJson(text)
   const added = await addCerts(list, true)
   return {added, skipped: list.length - added}
+}
+
+/** What mods see under the search box; worked out from the current settings. */
+export async function syncStatus(): Promise<SyncInfo> {
+  const link = (await settings.get<string>('trackerPost')) ?? ''
+  const total = await redis.hLen(CERTS)
+  if (!link.trim())
+    return {at: 0, added: 0, total, error: 'Source post not set in settings'}
+  if (!postId(link))
+    return {at: 0, added: 0, total, error: 'Source post link is not valid'}
+  const s = await lastSync()
+  // set after the last read failed for "not set": waiting for the next read
+  if (
+    !s ||
+    s.error.startsWith('Source post not set') ||
+    s.error.includes('not valid')
+  )
+    return {at: 0, added: 0, total, error: ''}
+  return s
 }

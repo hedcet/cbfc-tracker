@@ -415,13 +415,13 @@ function totalLine(n: number): string {
   if (!isMod) return films
   if (sync?.error)
     return `${films} · <span class="err-text">${esc(sync.error)}</span>`
-  if (!sync) return `${films} · not synced yet`
+  if (!sync?.at) return `${films} · source post read within 15 min`
   const at = new Date(sync.at).toLocaleTimeString('en-GB', {
     timeZone: 'Asia/Kolkata',
     hour: '2-digit',
     minute: '2-digit',
   })
-  return `${films} · synced ${at}`
+  return `${films} · source post read at ${at}`
 }
 
 let sheetOpen = false
