@@ -63,7 +63,8 @@ async function routeMe(): Promise<MeRsp> {
 // "Add CBFC Tracker" (mod menu): the title comes from the subreddit's app settings.
 async function routeMenuNewPost(): Promise<UiResponse> {
   const title =
-    (await settings.get<string>('postTitle'))?.trim() || '🎬 CBFC Tracker'
+    (await settings.get<string>('postTitle'))?.trim() ||
+    '🎬 CBFC Certificates: Search & Watchlist (Unofficial)'
   const post = await reddit.submitCustomPost({title})
   return {
     showToast: {text: 'CBFC Tracker added', appearance: 'success'},

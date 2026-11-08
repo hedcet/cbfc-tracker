@@ -20,12 +20,12 @@
         "type": "string",
         "label": "Title",
         "helpText": "Title of the post created by \"Add CBFC Tracker\"",
-        "defaultValue": "🎬 CBFC Tracker"
+        "defaultValue": "🎬 CBFC Certificates: Search & Watchlist (Unofficial)"
       },
       "archiveTime": {
         "type": "select",
         "label": "Archive time (IST)",
-        "helpText": "Each day at this time, a new post lists every certificate not archived yet",
+        "helpText": "When to post the new certificates since the last archive",
         "options": [
           {"label": "Off", "value": "off"},
           {"label": "00:00", "value": "00:00"},
@@ -39,13 +39,13 @@
       "trackerPost": {
         "type": "string",
         "label": "Source post",
-        "helpText": "Link or ID of the post cbfc.js keeps updating",
+        "helpText": "Link of the live tracker post (read only, never edited)",
         "defaultValue": ""
       },
       "initialData": {
         "type": "paragraph",
         "label": "Initial data (JSON)",
-        "helpText": "Past certificates, loaded once when saved",
+        "helpText": "One-time import of older certificates",
         "defaultValue": ""
       }
     }
