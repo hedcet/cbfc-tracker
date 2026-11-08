@@ -1,8 +1,12 @@
-import {Endpoint, type MeRsp} from '../shared/api.ts'
+import {
+  type CertsRsp,
+  Endpoint,
+  type MeRsp,
+  type SyncInfo,
+} from '../shared/api.ts'
 
-// Version 1: the full Search and Watchlist UI running on sample data in the browser.
-// Phase 1 replaces the sample data with certificates read from the tracker post;
-// Phase 3 moves the watchlist rules to the server (Redis).
+// Search uses the real certificates stored by the server (source post + initial data).
+// The watchlist still runs on demo keywords in the browser; v3 moves it to the server.
 
 /* ---------------- settings ---------------- */
 const PAGE = 6 // rows per page: fits the tall post
@@ -47,11 +51,6 @@ const up = (k: string): string => k.toUpperCase()
 const today = new Date().toLocaleDateString('en-CA', {
   timeZone: 'Asia/Kolkata',
 })
-const ago = (n: number): string => {
-  const d = new Date(`${today}T00:00:00Z`)
-  d.setUTCDate(d.getUTCDate() - n)
-  return d.toISOString().slice(0, 10)
-}
 const when = (d: string): string => {
   const k = Math.round((Date.parse(today) - Date.parse(d)) / 864e5)
   return k > 0 ? `${d} D${k}` : d
@@ -62,7 +61,19 @@ const minutes = (len: string): number => {
   return (h ? 60 * Number(h[1]) : 0) + (m ? Number(m[1]) : 0)
 }
 
-/* ---------------- demo data ---------------- */
+const formatLength = (secs: number): string =>
+  (
+    [
+      [Math.floor(secs / 3600), 'h'],
+      [Math.floor(secs / 60) % 60, 'm'],
+      [secs % 60, 's'],
+    ] as [number, string][]
+  )
+    .filter(([n]) => n)
+    .map(([n, u]) => `${n}${u}`)
+    .join(' ')
+
+/* ---------------- data ---------------- */
 type Film = {
   ref: string
   date: string
@@ -81,41 +92,9 @@ type Keyword = {
   addedAt: number
 }
 
-const rows: [string, number, string, string, string, string][] = [
-  ['CHE/1/210/2026', 0, '2h 7s', 'Tamil', 'ARIKOMBAN', 'UA 13+'],
-  [
-    'HYD/1/377/2026',
-    1,
-    '1h 55m 24s',
-    'Telugu',
-    '"EE PAATA KORINAVAARU NEMALIPAALEM NUNDI RAMAA,JYOTSNA,NANDU,MURALI,KABEER,DOL RAVI MODHALAGUVAARU"',
-    'UA 16+',
-  ],
-  ['TVM/1/41/2026', 2, '2h 7s', 'Malayalam', 'ARIKOMBAN', 'UA 13+'],
-  ['TVM/1/44/2026', 3, '1h 55m 10s', 'Malayalam', 'BOUMA', 'A'],
-  ['X/1/2026', 1, '2h 13m', 'Tamil', 'PEDDI', 'UA 16+'],
-  ['X/2/2026', 2, '3h 16m', 'Telugu', 'MR X', 'UA 13+'],
-  ['X/3/2026', 3, '2h 19m', 'Kannada', 'KATTALAN', 'A'],
-  ['X/4/2026', 4, '3h 22m', 'Malayalam', 'BLAST', 'UA 16+'],
-  ['X/5/2026', 1, '2h 25m', 'Hindi', 'AAROMALEY', 'UA 13+'],
-  ['X/6/2026', 2, '3h 28m', 'Tamil', 'MRITHYUNJAY', 'U'],
-  ['X/7/2026', 3, '2h 31m', 'Telugu', 'GHOST SOLDIER', 'A'],
-  ['X/8/2026', 4, '3h 34m', 'Kannada', 'TALAQ MUBARAK', 'A'],
-  ['X/9/2026', 1, '2h 40m', 'Hindi', 'APSARA-BORN TO RISE', 'U'],
-  ['X/10/2026', 2, '1h 46m', 'Bhojpuri', 'ANPADH BAHU', 'UA 13+'],
-  ['X/11/2026', 5, '2h 12m', 'Hindi', '45', 'UA 16+'],
-  ['TVM/1/45/2026', 0, '2h 33m 2s', 'Malayalam', 'DRISHYAM 3', 'UA 13+'],
-  ['CHE/1/230/2026', 0, '2h 33m 2s', 'Tamil', 'DRISHYAM 3', 'UA 13+'],
-]
-const films: Film[] = rows.map(([ref, daysAgo, len, lang, title, cat], i) => ({
-  ref,
-  date: ago(daysAgo),
-  len,
-  lang,
-  title,
-  cat,
-  seen: 100 - i,
-}))
+let films: Film[] = []
+let certsState: 'loading' | 'ready' | 'error' = 'loading'
+let sync: SyncInfo | null = null
 
 let viewer = '' // set from the server; '' = logged out
 let isMod = false
@@ -143,7 +122,7 @@ const keywords: Keyword[] = [
   kw('empuraan', 'u/lal_ettan', {'u/lal_ettan': 50}, true),
   kw('blah', 'u/troll42', {'u/troll42': 50}, false),
 ]
-const clock = 100
+let clock = 0 // newest certificate seq; "N new" counts what came after a follow
 
 /* ---------------- rules ---------------- */
 const page = {w: 0, s: 0}
@@ -250,6 +229,7 @@ function showTab(t: string): void {
   }
   for (const p of document.querySelectorAll('.pane'))
     p.classList.toggle('on', p.id === t)
+  $('demo').hidden = t !== 'watch' // only the watchlist is demo data now
 }
 
 /* ---------------- watchlist ---------------- */
@@ -407,7 +387,7 @@ function renderSearch(): void {
 
   const word = watchable(raw)
   $('sCount').innerHTML = !q
-    ? `${all.length.toLocaleString('en-IN')} films`
+    ? totalLine(all.length)
     : list.length
       ? `${list.length} match${list.length === 1 ? '' : 'es'}${word ? ` · <a data-act="watch">Watch ${esc(up(word))}</a>` : ''}`
       : ''
@@ -421,7 +401,27 @@ function renderSearch(): void {
           `<div class="row click" tabindex="0" data-act="sheet" data-ref="${esc(f.ref)}"><div class="grow"><div class="l1">${esc(f.title)}</div><div class="l2">${esc(`${f.lang} · ${f.cat} · ${f.len}`)}</div></div><span class="chev">›</span></div>`,
       )
       .join('') ||
-    `<div class="empty">Not certified yet${word ? `<br><button class="btn sm" type="button" data-act="watch">Watch ${esc(up(word))}</button>` : ''}</div>`
+    (!q
+      ? ''
+      : `<div class="empty">Not certified yet${word ? `<br><button class="btn sm" type="button" data-act="watch">Watch ${esc(up(word))}</button>` : ''}</div>`)
+}
+
+// "12,377 films"; mods also see when the source post was last read, or what is wrong
+function totalLine(n: number): string {
+  if (certsState === 'loading') return 'Loading…'
+  if (certsState === 'error')
+    return '<span class="err-text">Couldn’t load certificates</span>'
+  const films = n ? `${n.toLocaleString('en-IN')} films` : 'No certificates yet'
+  if (!isMod) return films
+  if (sync?.error)
+    return `${films} · <span class="err-text">${esc(sync.error)}</span>`
+  if (!sync) return `${films} · not synced yet`
+  const at = new Date(sync.at).toLocaleTimeString('en-GB', {
+    timeZone: 'Asia/Kolkata',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+  return `${films} · synced ${at}`
 }
 
 let sheetOpen = false
@@ -529,12 +529,43 @@ async function loadMe(): Promise<void> {
     const me = (await rsp.json()) as MeRsp
     viewer = me.username ? `u/${me.username}` : ''
     isMod = me.isMod
-    // demo: the viewer follows one keyword so the "new" chip is visible
-    const demo = keywords.find(k => k.keyword === 'drishyam')
-    if (viewer && demo) demo.subs[viewer] = 0
   } catch (err) {
     console.error(err)
   }
+}
+
+async function loadCerts(): Promise<void> {
+  try {
+    const rsp = await fetch(Endpoint.Certs, {
+      headers: {Accept: 'application/json'},
+    })
+    if (!rsp.ok) throw new Error(`certs ${rsp.status}`)
+    const data = (await rsp.json()) as CertsRsp
+    films = data.certs.map(([ref, title, lang, cat, secs, date, seq]) => ({
+      ref,
+      title,
+      lang,
+      cat,
+      len: formatLength(secs),
+      date,
+      seen: seq,
+    }))
+    sync = data.sync
+    clock = films.reduce((m, f) => Math.max(m, f.seen), 0)
+    certsState = 'ready'
+  } catch (err) {
+    console.error(err)
+    certsState = 'error'
+  }
+}
+
+// demo watchlist: follows start a little before the newest certificate,
+// and the viewer follows DRISHYAM, so "N new" chips have something to show
+function demoFollows(): void {
+  for (const k of keywords)
+    for (const u of Object.keys(k.subs)) k.subs[u] = Math.max(0, clock - 300)
+  const demo = keywords.find(k => k.keyword === 'drishyam')
+  if (viewer && demo) demo.subs[viewer] = Math.max(0, clock - 300)
 }
 
 const watchTab = document.querySelector('[data-tab="watch"]')
@@ -543,10 +574,12 @@ if (watchTab) watchTab.innerHTML = `${ICON.star}Watchlist`
 if (searchTab) searchTab.innerHTML = `${ICON.search}Search`
 $('sheetClose').innerHTML = ICON.close
 $('sClear').innerHTML = ICON.close
+$('demo').hidden = true
 placeholders()
 renderWatch()
 renderSearch()
-void loadMe().then(() => {
+void Promise.all([loadMe(), loadCerts()]).then(() => {
+  demoFollows()
   placeholders()
   renderWatch()
   renderSearch()

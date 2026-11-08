@@ -40,13 +40,15 @@
         "type": "string",
         "label": "Source post",
         "helpText": "Link of the live tracker post (read-only, never edited)",
-        "defaultValue": ""
+        "defaultValue": "",
+        "validationEndpoint": "/internal/settings/source-post"
       },
       "initialData": {
         "type": "paragraph",
         "label": "Initial data (JSON)",
         "helpText": "One-time import of older certificates",
-        "defaultValue": ""
+        "defaultValue": "",
+        "validationEndpoint": "/internal/settings/initial-data"
       }
     }
   },
@@ -58,8 +60,26 @@
         "location": "subreddit",
         "forUserType": "moderator",
         "endpoint": "/internal/on/menu/new-post"
+      },
+      {
+        "label": "Sync CBFC data",
+        "description": "Read new certificates from the source post now",
+        "location": "subreddit",
+        "forUserType": "moderator",
+        "endpoint": "/internal/on/menu/sync"
       }
     ]
+  },
+  "triggers": {
+    "onPostUpdate": "/internal/on/post-update"
+  },
+  "scheduler": {
+    "tasks": {
+      "sync": {
+        "endpoint": "/internal/scheduler/sync",
+        "cron": "*/15 * * * *"
+      }
+    }
   },
   "dev": {
     "subreddit": "cbfc_tracker_dev"

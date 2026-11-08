@@ -8,7 +8,7 @@ A Reddit tool that lets a film community follow Indian CBFC (censor board) certi
 
 Built for [r/kerala_boxoffice](https://www.reddit.com/r/kerala_boxoffice/). It works in any subreddit that has a CBFC tracker post.
 
-> **Version 1 status:** the screens below show the finished look, but they run on **demo data** (marked "DEMO DATA"). Loading real certificates, the watchlist, and the archive post are coming in the next versions (see [Roadmap](#roadmap)).
+> **Version 2 status:** Search uses real certificates from the source post and the initial data. The Watchlist still runs on **demo data** (marked "DEMO DATA"), and the archive post comes later (see [Roadmap](#roadmap)).
 
 ## Screens
 
@@ -32,6 +32,14 @@ Built for [r/kerala_boxoffice](https://www.reddit.com/r/kerala_boxoffice/). It w
 2. Open the app settings: **developers.reddit.com → your subreddit → cbfc-tracker → Settings** (`https://developers.reddit.com/r/<subreddit>/apps/cbfc-tracker`).
 3. Fill in the settings (below) and save.
 4. In your subreddit, open the **⋯ mod menu → "Add CBFC Tracker"**. This creates the tool post, using the title from settings. Pin it if you like.
+
+### How data comes in
+
+- **Source post:** read every 15 minutes, and right away when `cbfc.js` edits it. Mods can also use **⋯ mod menu → "Sync CBFC data"** to read it now.
+- **Initial data:** imported when you save the settings. A wrong format is refused with a short message.
+- Only films are kept: 1 hour or longer, with a date that is not in the future.
+- Certificates are matched by Ref, so the same certificate is never stored twice.
+- Mods see the state under the search box: "12,345 films · synced 10:42", or what is wrong, like "Source post not set".
 
 ## Settings
 
@@ -61,13 +69,15 @@ A JSON list in the same shape the app reads from the source post:
     "title": "ARIKOMBAN",
     "language": "Tamil",
     "category": "UA 13+",
-    "length": "120.07",
+    "length": "2h 7s",
     "date": "2026-11-08"
   }
 ]
 ```
 
-`length` uses the CBFC portal format MM.SS (`120.07` = 2h 7s).
+`length` is written like the source post (`2h 7s`). The CBFC portal format MM.SS (`120.07`) also works.
+
+**Making the JSON from the cbfc database:** in the `cbfc` project, run `node export.js` for everything, or `node export.js 2025-06` for one month. It writes `cbfc-<period>.json`. All data is about 1.7 MB, so if the settings box refuses it, paste one year or one month at a time; each save adds to what is already stored.
 
 ## Develop
 
@@ -90,7 +100,7 @@ npx devvit login
 devvit.json        app config: post, menu, settings, permissions
 public/index.html  the tool's page
 src/client/        page code (built to public/main.js)
-src/server/        app server (built to dist/server/index.js)
+src/server/        app server (built to dist/server/index.js): certs.ts reads, store.ts stores
 src/shared/api.ts  endpoints shared by client and server
 docs/              screenshots
 ```
@@ -100,7 +110,7 @@ docs/              screenshots
 | Version | Work                                                                        | Status           |
 | ------- | --------------------------------------------------------------------------- | ---------------- |
 | 1       | Search + Watchlist look, settings, "Add CBFC Tracker" menu                  | done (demo data) |
-| 2       | Read the source post and initial data into storage; real Search             | next             |
-| 3       | Real Watchlist with all the rules                                           |                  |
+| 2       | Read the source post and initial data into storage; real Search             | done             |
+| 3       | Real Watchlist with all the rules                                           | next             |
 | 4       | Archive post                                                                |                  |
 | 5       | Install on [r/kerala_boxoffice](https://www.reddit.com/r/kerala_boxoffice/) |                  |

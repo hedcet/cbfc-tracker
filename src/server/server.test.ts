@@ -2,12 +2,52 @@ import assert from 'node:assert/strict'
 import {createServer} from 'node:http'
 import type {AddressInfo, Server} from 'node:net'
 import {after, before, test} from 'node:test'
-import {type Context, reddit, runWithContext} from '@devvit/web/server'
-import {Endpoint, type ErrorRsp, type MeRsp} from '../shared/api.ts'
+import {
+  type Context,
+  reddit,
+  redis,
+  runWithContext,
+  settings,
+} from '@devvit/web/server'
+import {
+  type CertsRsp,
+  Endpoint,
+  type ErrorRsp,
+  type MeRsp,
+} from '../shared/api.ts'
 import {onReq} from './server.ts'
 
 let server: Server
 let serverURL: string
+
+// in-memory stand-ins for Redis and settings
+const hashes = new Map<string, Map<string, string>>()
+const nums = new Map<string, number>()
+const hash = (k: string): Map<string, string> => {
+  if (!hashes.has(k)) hashes.set(k, new Map())
+  return hashes.get(k) as Map<string, string>
+}
+Object.assign(redis, {
+  hMGet: async (k: string, f: string[]) => f.map(x => hash(k).get(x) ?? null),
+  hSet: async (k: string, o: Record<string, string>) => {
+    for (const [f, v] of Object.entries(o)) hash(k).set(f, v)
+    return Object.keys(o).length
+  },
+  hGetAll: async (k: string) => Object.fromEntries(hash(k)),
+  hLen: async (k: string) => hash(k).size,
+  incrBy: async (k: string, n: number) => {
+    nums.set(k, (nums.get(k) ?? 0) + n)
+    return nums.get(k)
+  },
+})
+const sourcePost = `| Title | Language | Category | Length | Ref | When |
+| - | - | - | - | - | - |
+| DRISHYAM 3 | Malayalam | UA 13+ | 2h 33m 2s | TVM/1/45/2026 | 2026-11-06 D2 |
+| A TRAILER | Tamil | U | 2m 10s | TRL/1/1/2026 | 2026-11-06 D2 |`
+Object.assign(settings, {
+  get: async (k: string) => (k === 'trackerPost' ? 't3_src' : undefined),
+})
+reddit.getPostById = async () => ({body: sourcePost}) as never
 
 before(async () => {
   reddit.getCurrentUser = async () =>
@@ -59,4 +99,56 @@ test('wrong method', async () => {
 test('404', async () => {
   const rsp = await fetch(serverURL)
   assert.equal(rsp.status, 404)
+})
+
+const post = (endpoint: string, body: unknown): Promise<Response> =>
+  fetch(`${serverURL}/${endpoint}`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(body),
+  })
+
+test('initial data: imported on save, duplicates by ref skipped', async () => {
+  const data = JSON.stringify([
+    {
+      ref: 'CHE/1/210/2026',
+      title: 'ARIKOMBAN',
+      language: 'Tamil',
+      category: 'UA 13+',
+      length: '2h 7s',
+      date: '2026-01-08',
+    },
+    {
+      ref: 'CHE/1/210/2026',
+      title: 'ARIKOMBAN',
+      language: 'Tamil',
+      category: 'UA 13+',
+      length: '2h 7s',
+      date: '2026-01-08',
+    },
+  ])
+  for (let i = 0; i < 2; i++) {
+    const rsp = await post(Endpoint.ValidateInitialData, {value: data})
+    assert.deepEqual(await rsp.json(), {success: true})
+  }
+  assert.equal(hash('certs').size, 1)
+})
+
+test('initial data: bad JSON is refused with a message', async () => {
+  const rsp = await post(Endpoint.ValidateInitialData, {value: '{oops'})
+  assert.deepEqual(await rsp.json(), {success: false, error: 'Not valid JSON'})
+})
+
+test('sync reads the source post; films only', async () => {
+  const rsp = await post(Endpoint.OnSchedulerSync, {})
+  assert.equal(rsp.status, 200)
+  const certs = (await (
+    await fetch(`${serverURL}/${Endpoint.Certs}`)
+  ).json()) as CertsRsp
+  assert.deepEqual(certs.certs.map(c => c[0]).sort(), [
+    'CHE/1/210/2026',
+    'TVM/1/45/2026',
+  ])
+  assert.equal(certs.sync?.added, 1)
+  assert.equal(certs.sync?.error, '')
 })
