@@ -74,13 +74,23 @@ const sent: {to: string; body: string}[] = []
 const convTo = new Map<string, string>()
 Object.assign(reddit.modMail, {
   archiveConversation: async () => ({}),
-  createConversation: async (o: {to: string; body: string}) => {
+  createConversation: async (o: {
+    to: string
+    body: string
+    isAuthorHidden?: boolean
+  }) => {
+    assert.equal(o.isAuthorHidden, true) // sent as the subreddit
     const id = `c${convTo.size + 1}`
     convTo.set(id, o.to)
     sent.push({body: o.body, to: o.to})
     return {conversation: {id}}
   },
-  reply: async (o: {conversationId: string; body: string}) => {
+  reply: async (o: {
+    conversationId: string
+    body: string
+    isAuthorHidden?: boolean
+  }) => {
+    assert.equal(o.isAuthorHidden, true) // sent as the subreddit
     sent.push({body: o.body, to: convTo.get(o.conversationId) ?? '?'})
     return {conversation: {id: o.conversationId}}
   },
@@ -221,9 +231,14 @@ test('watch: follow sends a welcome; private keywords only for followers and mod
   assert.equal(r.keywords[0]?.owner, 'ann')
   assert.equal(r.keywords[0]?.public, false) // only mods make it public
   assert.equal(r.keywords[0]?.fresh, 0) // counts from the follow
-  assert.match(
-    sent.at(-1)?.body ?? '',
-    /Keyword added: DRISHYAM[\s\S]*Alerts \*\*ON\*\*/,
+  // exactly as agreed: three lines, Unfollow is a link to the tracker post
+  assert.equal(
+    sent.at(-1)?.body,
+    [
+      '**Keyword added: DRISHYAM**',
+      '🔔 Alerts **ON** for titles containing DRISHYAM.',
+      'Not interested? [Unfollow](https://www.reddit.com/r/cbfc_tracker_dev/comments/123/)',
+    ].join('  \n'),
   )
   user = {mod: false, name: 'bob'}
   assert.deepEqual(words(await watch()), []) // not public yet

@@ -53,15 +53,20 @@ const getInfo = async (word: string): Promise<Info | null> => {
 
 const up = (w: string): string => w.toUpperCase()
 
+// Markdown line break: lines stay right under each other
+const BR = '  \n'
+
+// "2h 33m": messages show hours and minutes only
+const hm = (secs: number): string => formatLength(secs - (secs % 60))
+
 // Markdown: keep titles literal
 const md = (s: string): string => s.replace(/[\\`*_~[\]<>#|]/g, c => `\\${c}`)
 
+// link to the tracker post (where unfollow is); the subreddit until it is known
 async function trackerUrl(): Promise<string> {
-  const id = await redis.get(TOOL_POST)
-  const sub = context.subredditName
-  return id && sub
-    ? `https://www.reddit.com/r/${sub}/comments/${id.replace(/^t3_/, '')}/`
-    : ''
+  const id = context.postId ?? (await redis.get(TOOL_POST))
+  const sub = `https://www.reddit.com/r/${context.subredditName ?? ''}/`
+  return id ? `${sub}comments/${id.replace(/^t3_/, '')}/` : sub
 }
 
 /** One modmail conversation per user; each message is a reply in it, then archived. */
@@ -72,7 +77,11 @@ async function send(user: string, body: string): Promise<void> {
     let id = await redis.get(dm(user))
     if (id) {
       try {
-        await reddit.modMail.reply({body, conversationId: id})
+        await reddit.modMail.reply({
+          body,
+          conversationId: id,
+          isAuthorHidden: true, // from the subreddit, not the app account
+        })
       } catch (err) {
         console.error(`modmail reply to ${user}:`, err) // gone: start a new one
         id = undefined
@@ -81,6 +90,7 @@ async function send(user: string, body: string): Promise<void> {
     if (!id) {
       const rsp = await reddit.modMail.createConversation({
         body,
+        isAuthorHidden: true, // from the subreddit, not the app account
         subject: (await postTitle()).slice(0, 100),
         subredditName: sub,
         to: user,
@@ -110,17 +120,15 @@ export async function welcomeText(word: string): Promise<string> {
   return [
     `**Keyword added: ${up(word)}**`,
     `🔔 Alerts **ON** for titles containing ${up(word)}.`,
-    url
-      ? `Not interested? [Unfollow](${url})`
-      : 'Not interested? Unfollow in the tracker.',
-  ].join('\n\n')
+    `Not interested? [Unfollow](${url})`,
+  ].join(BR)
 }
 
 export const goodbyeText = (word: string): string =>
   [
     `**Keyword removed: ${up(word)}**`,
     `🔕 Alerts **OFF** for titles containing ${up(word)}.`,
-  ].join('\n\n')
+  ].join(BR)
 
 /** "DRISHYAM, TOXIC: 3 new certificates", then films grouped by their keywords. */
 export function alertText(films: {cert: Cert; words: string[]}[]): string {
@@ -129,21 +137,19 @@ export function alertText(films: {cert: Cert; words: string[]}[]): string {
   const groups = new Map<string, string[]>()
   for (const {cert: c, words: w} of films) {
     const label = w.map(up).join(', ')
-    const line = [c.title, c.language, c.category, formatLength(c.secs)]
+    const line = [c.title, c.language, c.category, hm(c.secs)]
       .filter(Boolean)
       .map(md)
       .join(' · ')
     groups.set(label, [...(groups.get(label) ?? []), line])
   }
+  const head = `**${words.join(', ')}: ${n} new certificate${n === 1 ? '' : 's'}**`
+  // one keyword group: films right under the heading; several: a block per group
+  if (groups.size === 1) return [head, ...[...groups.values()].flat()].join(BR)
   const blocks = [...groups].map(([label, lines]) =>
-    groups.size > 1
-      ? [`**${label}**`, ...lines].join('  \n')
-      : lines.join('  \n'),
+    [`**${label}**`, ...lines].join(BR),
   )
-  return [
-    `**${words.join(', ')}: ${n} new certificate${n === 1 ? '' : 's'}**`,
-    ...blocks,
-  ].join('\n\n')
+  return [head, ...blocks].join('\n\n')
 }
 
 /** New certificates from the source post: one alert per affected follower. */
@@ -257,6 +263,9 @@ async function list(me: MeRsp): Promise<Keyword[]> {
 
 /** Watchlist endpoint: optional change, then the viewer's list. */
 export async function watch(body: Partial<WatchReq>): Promise<WatchActRsp> {
+  // remember the tracker post for alert links (also posts made before v3)
+  if (context.postId && !(await redis.get(TOOL_POST)))
+    await redis.set(TOOL_POST, context.postId)
   const me = await viewer()
   if (body.act) {
     if (!me.username) return {error: 'Log in first', status: 401}
