@@ -12,8 +12,8 @@ Built for r/kerala_boxoffice. It works in any subreddit that has a CBFC tracker 
 
 ## Screens
 
-| Search (opens first) | Certificate | Watchlist |
-| --- | --- | --- |
+| Search (opens first)       | Certificate                          | Watchlist                        |
+| -------------------------- | ------------------------------------ | -------------------------------- |
 | ![Search](docs/search.png) | ![Certificate](docs/certificate.png) | ![Watchlist](docs/watchlist.png) |
 
 **Search** works for everyone, from the first letter typed. It shows "4,223 films" with an empty box, and "N matches · Watch X" while you type. Tap a row to open its certificate.
@@ -35,12 +35,12 @@ Built for r/kerala_boxoffice. It works in any subreddit that has a CBFC tracker 
 
 ## Settings
 
-| Setting | What it does | Default |
-| --- | --- | --- |
-| **Tracker title** | Title of the post created by "Add CBFC Tracker" | 🎬 CBFC Tracker |
-| **Daily archive time (IST)** | Once a day at this time, a new post lists the certificates of the 24 hours before. The first post comes at the next set time after install. Choose Off to stop it. | 00:00 |
-| **Source post** | Link or ID of the tracker post that `cbfc.js` keeps updating. The app reads new certificates from it and never edits it. | empty |
-| **Initial data (JSON)** | Past certificates, pasted once. Loaded when you save. | empty |
+| Setting                      | What it does                                                                                                                                                       | Default         |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------- |
+| **Tracker title**            | Title of the post created by "Add CBFC Tracker"                                                                                                                    | 🎬 CBFC Tracker |
+| **Daily archive time (IST)** | Once a day at this time, a new post lists the certificates of the 24 hours before. The first post comes at the next set time after install. Choose Off to stop it. | 00:00           |
+| **Source post**              | Link or ID of the tracker post that `cbfc.js` keeps updating. The app reads new certificates from it and never edits it.                                           | empty           |
+| **Initial data (JSON)**      | Past certificates, pasted once. Loaded when you save.                                                                                                              | empty           |
 
 ### Source post format
 
@@ -56,7 +56,14 @@ A JSON list in the same shape the app reads from the source post:
 
 ```json
 [
-  {"ref": "CHE/1/210/2026", "title": "ARIKOMBAN", "language": "Tamil", "category": "UA 13+", "length": "120.07", "date": "2026-11-08"}
+  {
+    "ref": "CHE/1/210/2026",
+    "title": "ARIKOMBAN",
+    "language": "Tamil",
+    "category": "UA 13+",
+    "length": "120.07",
+    "date": "2026-11-08"
+  }
 ]
 ```
 
@@ -72,11 +79,11 @@ npm install
 npx devvit login
 ```
 
-| Command | What it does |
-| --- | --- |
-| `npm test` | Type check, lint, unit tests, build |
+| Command            | What it does                                                  |
+| ------------------ | ------------------------------------------------------------- |
+| `npm test`         | Type check, lint, unit tests, build                           |
 | `npm run playtest` | Run on the test subreddit r/cbfc_tracker_dev, reloads on save |
-| `npm run upload` | Build and upload a new version |
+| `npm run upload`   | Build and upload a new version                                |
 
 ```text
 devvit.json        app config: post, menu, settings, permissions
@@ -89,10 +96,10 @@ docs/              screenshots
 
 ## Roadmap
 
-| Version | Work | Status |
-| --- | --- | --- |
-| 1 | Search + Watchlist look, settings, "Add CBFC Tracker" menu | done (demo data) |
-| 2 | Read the source post and initial data into storage; real Search | next |
-| 3 | Real Watchlist with all the rules | |
-| 4 | Daily archive post | |
-| 5 | Install on r/kerala_boxoffice | |
+| Version | Work                                                            | Status           |
+| ------- | --------------------------------------------------------------- | ---------------- |
+| 1       | Search + Watchlist look, settings, "Add CBFC Tracker" menu      | done (demo data) |
+| 2       | Read the source post and initial data into storage; real Search | next             |
+| 3       | Real Watchlist with all the rules                               |                  |
+| 4       | Daily archive post                                              |                  |
+| 5       | Install on r/kerala_boxoffice                                   |                  |
