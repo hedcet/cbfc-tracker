@@ -19,7 +19,7 @@
     "url": "https://github.com/hedcet/cbfc-tracker/issues"
   },
   "author": "HedCET",
-  "license": "BSD-3-Clause",
+  "license": "GPL-3.0-only",
   "type": "module",
   "scripts": {
     "build": "npm run build:client -- --metafile=dist/client.meta.json --minify && npm run build:server -- --metafile=dist/server.meta.json --minify",
