@@ -1,6 +1,6 @@
 // Watchlist: keywords, followers and their modmail alerts.
 
-import {context, reddit, redis, settings} from '@devvit/web/server'
+import {context, reddit, redis, scheduler, settings} from '@devvit/web/server'
 import {
   formatLength,
   type Keyword,
@@ -17,25 +17,56 @@ import {freshCounts, lastSeq} from './store.ts'
 
 // Redis layout
 //   post        str   id of the one tool post
-//   kw          hash  word → JSON {at, owner, public}
+//   kw          hash  word → JSON {at, n (followers), owner, public}
 //   kw:<word>   hash  username → JSON [seq, at] (follow seq: "N new" counts after it)
 //   my:<user>   hash  word → '1' (keywords the user follows)
 //   dm:<user>   str   modmail conversation id of the user's alerts
 //   dmc:<id>    str   username of an alerts conversation (to answer replies)
 //   ack:<user>  str   set for a day after an automatic answer to a reply
+//   told:<user> hash  word → '1' while the last ON/OFF message sent was ON
+//   alerts      hash  ref → JSON Cert: new certificates waiting for the alerts job
+//   alerts:job  str   set while an alerts job is scheduled
+//   rate        hash  username → JSON [times] of messages sent in the last day
+//   digest      hash  username → JSON {films, msgs, notes} held for a grouped message
+//   mode        hash  username → JSON {at, m: 'hourly'|'daily'}: grouped mode since at
 export const TOOL_POST = 'post'
 const KW = 'kw'
 const subs = (word: string): string => `kw:${word}`
 const mine = (user: string): string => `my:${user}`
 const dm = (user: string): string => `dm:${user}`
+const told = (user: string): string => `told:${user}`
 // conversation ids come with or without a type prefix: compare the bare id
 const dmc = (id: string): string => `dmc:${id.replace(/^.*_/, '')}`
-const DAY_MS = 24 * 3600_000
+const HOUR_MS = 3600_000
+const DAY_MS = 24 * HOUR_MS
+const ALERTS = 'alerts'
+const ALERTS_JOB = 'alerts:job'
+const RATE = 'rate'
+const DIGEST = 'digest'
+const MODE = 'mode'
+
+// Message limits per user (alerts and ON/OFF). More than 2 in an hour: hourly
+// mode; more than 8 in a day: daily mode (one grouped message an hour / a day).
+// A full hour (day) with at most 2 (8) held messages ends the grouped mode.
+const PER_HOUR = 2
+const PER_DAY = 8
+// the hourly run comes a little early or late
+const SLACK_MS = 5 * 60_000
+
+// Lists: at most 5 lines a keyword group and 10 in a message (shared in turns);
+// at most 5 keywords in a heading or label. The rest: "+N more".
+const MAX_LIST = 5
+const MAX_FILMS = 10
 
 const DEFAULT_TITLE = '🎬 CBFC Certificates: Search & Watchlist (Unofficial)'
 
-type Info = {at: number; owner: string; public: boolean}
+type Info = {at: number; n?: number; owner: string; public: boolean}
 type Me = {isMod: boolean; username: string}
+type Film = {cert: Cert; words: string[]}
+type State = 'on' | 'off'
+// msgs: how many messages were held back (decides when a grouped mode ends)
+type Held = {films: Film[]; msgs: number; notes: Record<string, State>}
+type Mode = {at: number; m: 'daily' | 'hourly'}
 
 /** Title from settings: the tool post title and the alerts subject. */
 export const postTitle = async (): Promise<string> =>
@@ -64,8 +95,12 @@ const BR = '  \n'
 // "2h 33m": messages show hours and minutes only
 const hm = (secs: number): string => formatLength(secs - (secs % 60))
 
-// Markdown: keep titles literal
-const md = (s: string): string => s.replace(/[\\`*_~[\]<>#|]/g, c => `\\${c}`)
+// Markdown: keep titles literal (also ^ superscript)
+const md = (s: string): string => s.replace(/[\\`*_~^[\]<>#|]/g, c => `\\${c}`)
+
+// a line starting "1." or "-"/"+" would turn into a list
+const lineStart = (s: string): string =>
+  s.replace(/^(\d+)\./, '$1\\.').replace(/^([-+])/, '\\$1')
 
 // link to the tracker post (where unfollow is); the subreddit until it is known
 async function trackerUrl(): Promise<string> {
@@ -84,10 +119,13 @@ async function archive(id: string): Promise<void> {
   }
 }
 
-/** One modmail conversation per user; each message is a reply in it, then archived. */
-async function send(user: string, body: string): Promise<void> {
+/**
+ * One modmail conversation per user; each message is a reply in it, then
+ * archived. False when it could not be sent (the caller keeps it for later).
+ */
+async function send(user: string, body: string): Promise<boolean> {
   const sub = context.subredditName
-  if (!sub) return
+  if (!sub) return false
   try {
     let id = await redis.get(dm(user))
     if (id) {
@@ -111,21 +149,26 @@ async function send(user: string, body: string): Promise<void> {
         to: user,
       })
       id = rsp.conversation.id
-      if (!id) return
+      if (!id) return true // sent; nothing to remember
       await redis.set(dm(user), id)
     }
     await redis.set(dmc(id), user)
     await archive(id)
+    return true
   } catch (err) {
     console.error(`modmail to ${user}:`, err)
+    return false
   }
 }
+
+// what a keyword matches, as told in the ON/OFF messages
+const matches = (word: string): string => `titles containing ${up(word)}`
 
 async function welcomeText(word: string): Promise<string> {
   const url = await trackerUrl()
   return [
     `**Keyword added: ${up(word)}**`,
-    `🔔 Alerts **ON** for titles containing ${up(word)}.`,
+    `🔔 Alerts **ON** for ${matches(word)}.`,
     `Not interested? [Unfollow](${url})`,
   ].join(BR)
 }
@@ -133,48 +176,211 @@ async function welcomeText(word: string): Promise<string> {
 const goodbyeText = (word: string): string =>
   [
     `**Keyword removed: ${up(word)}**`,
-    `🔕 Alerts **OFF** for titles containing ${up(word)}.`,
+    `🔕 Alerts **OFF** for ${matches(word)}.`,
   ].join(BR)
 
-const replyText = (): string =>
-  [
-    '🤖 **This is an automated alerts thread**',
-    'Replies here aren’t read, sorry.',
-  ].join(BR)
+const REPLY = '🤖 **Automated alerts thread** · replies aren’t read, sorry.'
 
-/** "DRISHYAM, TOXIC: 3 new certificates", then films grouped by their keywords. */
-function alertText(films: {cert: Cert; words: string[]}[]): string {
-  const words = [...new Set(films.flatMap(f => f.words))].map(up)
+// "A, B, C, D, E +2 more": keywords alphabetical, at most 5
+function label(words: string[]): string {
+  const w = [...words].sort().map(up)
+  const more = w.length - MAX_LIST
+  return more > 0
+    ? `${w.slice(0, MAX_LIST).join(', ')} +${more} more`
+    : w.join(', ')
+}
+
+/**
+ * "DRISHYAM, TOXIC: 3 new certificates", then films grouped by their keywords
+ * (alphabetical): at most 5 lines a group and 10 in all, shared in turns;
+ * a cut group ends "+N more".
+ */
+function alertText(films: Film[]): string {
   const n = films.length
-  const groups = new Map<string, string[]>()
-  for (const {cert: c, words: w} of films) {
-    const label = w.map(up).join(', ')
-    const line = [c.title, c.language, c.category, hm(c.secs)]
-      .filter(Boolean)
-      .map(md)
-      .join(' · ')
-    groups.set(label, [...(groups.get(label) ?? []), line])
+  const head = `**${label([...new Set(films.flatMap(f => f.words))])}: ${n} new certificate${n === 1 ? '' : 's'}**`
+  const groups = new Map<string, {lines: string[]; words: string[]}>()
+  for (const {cert: c, words} of films) {
+    const line = lineStart(
+      [c.title, c.language, c.category, hm(c.secs)]
+        .filter(Boolean)
+        .map(md)
+        .join(' · '),
+    )
+    const key = [...words].sort().join(' ')
+    const g = groups.get(key) ?? {lines: [], words}
+    g.lines.push(line)
+    groups.set(key, g)
   }
-  const head = `**${words.join(', ')}: ${n} new certificate${n === 1 ? '' : 's'}**`
+  const sorted = [...groups.values()]
+    .map(g => ({...g, label: label(g.words)}))
+    .sort((a, b) => a.label.localeCompare(b.label))
+  // one line per group in turns until 10 are taken (at most 5 a group)
+  const take = sorted.map(() => 0)
+  for (let left = MAX_FILMS, more = true; left > 0 && more; ) {
+    more = false
+    sorted.forEach((g, i) => {
+      const k = take[i] ?? 0
+      if (left > 0 && k < Math.min(g.lines.length, MAX_LIST)) {
+        take[i] = k + 1
+        left--
+        more = true
+      }
+    })
+  }
+  const shown = sorted.map((g, i) => {
+    const k = take[i] ?? 0
+    const cut = g.lines.length - k
+    return {
+      label: g.label,
+      lines: [...g.lines.slice(0, k), ...(cut ? [`**+${cut} more**`] : [])],
+    }
+  })
   // one keyword group: films right under the heading; several: a block per group
-  if (groups.size === 1) return [head, ...[...groups.values()].flat()].join(BR)
-  const blocks = [...groups].map(([label, lines]) =>
-    [`**${label}**`, ...lines].join(BR),
-  )
+  if (shown.length === 1) return [head, ...(shown[0]?.lines ?? [])].join(BR)
+  const blocks = shown.map(g => [`**${g.label}**`, ...g.lines].join(BR))
   return [head, ...blocks].join('\n\n')
 }
 
-/** New certificates from the source post: one alert per affected follower. */
+// grouped ON/OFF: "🔔 Alerts **ON**: OM, TOXIC" / "🔕 Alerts **OFF**: LEO" (+ Unfollow)
+function notesText(notes: [string, State][], url: string): string {
+  const of = (st: State): string =>
+    label(notes.filter(([, s]) => s === st).map(([w]) => w))
+  const on = of('on')
+  const off = of('off')
+  return [
+    ...(on ? [`🔔 Alerts **ON**: ${on}`] : []),
+    ...(off ? [`🔕 Alerts **OFF**: ${off}`] : []),
+    ...(on ? [`Not interested? [Unfollow](${url})`] : []),
+  ].join(BR)
+}
+
+// "📦 **3 updates, grouped** · max 2 messages/hour" (or 8 messages/day)
+const digestHead = (n: number, m: Mode['m']): string =>
+  `📦 **${n} update${n === 1 ? '' : 's'}, grouped** · ${
+    m === 'daily'
+      ? `max ${PER_DAY} messages/day`
+      : `max ${PER_HOUR} messages/hour`
+  }`
+
+// message times of a user, last day only
+async function recentTimes(user: string): Promise<number[]> {
+  const json = await redis.hGet(RATE, user)
+  const since = Date.now() - DAY_MS
+  return (json ? (JSON.parse(json) as number[]) : []).filter(t => t > since)
+}
+
+async function getMode(user: string): Promise<Mode | null> {
+  const json = await redis.hGet(MODE, user)
+  return json ? (JSON.parse(json) as Mode) : null
+}
+
+async function getHeld(user: string): Promise<Held> {
+  const json = await redis.hGet(DIGEST, user)
+  return json ? (JSON.parse(json) as Held) : {films: [], msgs: 0, notes: {}}
+}
+
+// instant: no grouped mode, under 2 messages this hour and 8 today
+async function canSend(user: string): Promise<boolean> {
+  if (await getMode(user)) return false
+  const times = await recentTimes(user)
+  const hour = times.filter(t => t > Date.now() - HOUR_MS).length
+  return hour < PER_HOUR && times.length < PER_DAY
+}
+
+// sent: counted for the limits; false when it failed
+async function deliver(user: string, body: string): Promise<boolean> {
+  const times = await recentTimes(user)
+  if (!(await send(user, body))) return false
+  await redis.hSet(RATE, {[user]: JSON.stringify([...times, Date.now()])})
+  return true
+}
+
+// held for the grouped message (films merged, last ON/OFF per keyword);
+// 8 or more today: daily mode, else hourly mode
+async function hold(
+  user: string,
+  add: Film[],
+  notes: Held['notes'] = {},
+): Promise<void> {
+  const mode = await getMode(user)
+  const daily =
+    mode?.m === 'daily' || (await recentTimes(user)).length >= PER_DAY
+  if (!mode || (daily && mode.m !== 'daily')) {
+    const next: Mode = {at: Date.now(), m: daily ? 'daily' : 'hourly'}
+    await redis.hSet(MODE, {[user]: JSON.stringify(next)})
+  }
+  const held = await getHeld(user)
+  const films = new Map(held.films.map(f => [f.cert.ref, f]))
+  for (const f of add) {
+    const old = films.get(f.cert.ref)
+    films.set(
+      f.cert.ref,
+      old ? {...old, words: [...new Set([...old.words, ...f.words])]} : f,
+    )
+  }
+  const next: Held = {
+    films: [...films.values()],
+    msgs: held.msgs + 1,
+    notes: {...held.notes, ...notes},
+  }
+  await redis.hSet(DIGEST, {[user]: JSON.stringify(next)})
+}
+
+// remembers the last ON/OFF told per keyword (no entry = OFF)
+async function setTold(user: string, notes: [string, State][]): Promise<void> {
+  const on = notes.filter(([, st]) => st === 'on').map(([w]) => [w, '1'])
+  const off = notes.filter(([, st]) => st === 'off').map(([w]) => w)
+  if (on.length) await redis.hSet(told(user), Object.fromEntries(on))
+  if (off.length) await redis.hDel(told(user), off)
+}
+
+// ON/OFF of a keyword: sent now if allowed, else in the grouped message
+async function note(user: string, word: string, state: State): Promise<void> {
+  if (
+    (await canSend(user)) &&
+    (await deliver(
+      user,
+      state === 'on' ? await welcomeText(word) : goodbyeText(word),
+    ))
+  )
+    return setTold(user, [[word, state]])
+  await hold(user, [], {[word]: state})
+}
+
+/** New certificates: queue them; a background job sends the alerts (nobody waits). */
 export async function notifyNew(added: Cert[]): Promise<void> {
   if (!added.length) return
   try {
-    const titles = added.map(c => norm(c.title))
-    const byUser = new Map<string, Map<string, {cert: Cert; words: string[]}>>()
+    await redis.hSet(
+      ALERTS,
+      Object.fromEntries(added.map(c => [c.ref, JSON.stringify(c)])),
+    )
+    if (await redis.get(ALERTS_JOB)) return
+    await redis.set(ALERTS_JOB, '1', {
+      expiration: new Date(Date.now() + 10 * 60_000), // a lost job retries later
+    })
+    // a moment ahead: a job time must not be in the past
+    await scheduler.runJob({name: 'alerts', runAt: new Date(Date.now() + 2000)})
+  } catch (err) {
+    console.error(err)
+  }
+}
+
+/** Alerts job (also every hour): one alert per affected follower. */
+export async function sendAlerts(): Promise<void> {
+  try {
+    const queued = await redis.hGetAll(ALERTS)
+    const refs = Object.keys(queued)
+    await redis.del(ALERTS_JOB)
+    if (!refs.length) return
+    await redis.hDel(ALERTS, refs)
+    const added = Object.values(queued).map(j => JSON.parse(j) as Cert)
+    const byUser = new Map<string, Map<string, Film>>()
     for (const word of await redis.hKeys(KW)) {
-      const hits = added.filter((_, i) => kwMatch(titles[i] ?? '', word))
+      const hits = added.filter(c => kwMatch(c.title, word))
       if (!hits.length) continue
       for (const user of await redis.hKeys(subs(word))) {
-        const films = byUser.get(user) ?? new Map()
+        const films = byUser.get(user) ?? new Map<string, Film>()
         for (const cert of hits) {
           const f = films.get(cert.ref) ?? {cert, words: []}
           f.words.push(word)
@@ -183,12 +389,59 @@ export async function notifyNew(added: Cert[]): Promise<void> {
         byUser.set(user, films)
       }
     }
-    for (const [user, films] of byUser)
-      await send(user, alertText([...films.values()]))
-    if (byUser.size) console.log(`alerts: ${byUser.size} users`)
+    let held = 0
+    for (const [user, map] of byUser) {
+      const films = [...map.values()]
+      // grouped mode, over a limit, or the send failed: the grouped message
+      if (!((await canSend(user)) && (await deliver(user, alertText(films))))) {
+        await hold(user, films)
+        held++
+      }
+    }
+    if (byUser.size) console.log(`alerts: ${byUser.size} users, ${held} held`)
   } catch (err) {
     console.error(err)
   }
+}
+
+/**
+ * Every hour: grouped messages; hourly mode each hour, daily mode once a day.
+ * A full hour (day) with at most 2 (8) held messages: back to instant.
+ */
+export async function sendDigests(): Promise<void> {
+  const now = Date.now()
+  let sent = 0
+  for (const [user, json] of Object.entries(await redis.hGetAll(MODE))) {
+    try {
+      const mode = JSON.parse(json) as Mode
+      const period = mode.m === 'daily' ? DAY_MS : HOUR_MS
+      // the period in which the mode started may be short: not a review
+      const full = now - mode.at >= period - SLACK_MS
+      if (mode.m === 'daily' && !full) continue // not a day yet
+      const held = await getHeld(user)
+      const last = await redis.hGetAll(told(user))
+      // only states that differ from the last one told (toggled back = nothing)
+      const notes = Object.entries(held.notes).filter(
+        ([word, state]) => (last[word] ? 'on' : 'off') !== state,
+      )
+      const parts = notes.length ? [notesText(notes, await trackerUrl())] : []
+      if (held.films.length) parts.push(alertText(held.films))
+      if (parts.length) {
+        const n = notes.length + held.films.length
+        const body = [digestHead(n, mode.m), ...parts].join('\n\n')
+        if (!(await deliver(user, body))) continue // kept for the next run
+        await setTold(user, notes)
+        sent++
+      }
+      await redis.hDel(DIGEST, [user])
+      const limit = mode.m === 'daily' ? PER_DAY : PER_HOUR
+      if (full && held.msgs <= limit) await redis.hDel(MODE, [user])
+      else await redis.hSet(MODE, {[user]: JSON.stringify({...mode, at: now})})
+    } catch (err) {
+      console.error(`grouped message for ${user}:`, err)
+    }
+  }
+  if (sent) console.log(`grouped messages: ${sent}`)
 }
 
 async function follow(me: Me, word: string): Promise<string> {
@@ -199,15 +452,16 @@ async function follow(me: Me, word: string): Promise<string> {
   if (!me.isMod && list.length >= MAX_FOLLOW)
     return `Limit: ${MAX_FOLLOW} keywords`
   const now = Date.now()
-  if (!(await getInfo(word))) {
-    const info: Info = {at: now, owner: me.username, public: me.isMod}
-    await redis.hSet(KW, {[word]: JSON.stringify(info)})
-  }
+  const old = await getInfo(word)
+  const info: Info = old
+    ? {...old, n: (old.n ?? (await redis.hLen(subs(word)))) + 1}
+    : {at: now, n: 1, owner: me.username, public: me.isMod}
+  await redis.hSet(KW, {[word]: JSON.stringify(info)})
   await redis.hSet(subs(word), {
     [me.username]: JSON.stringify([await lastSeq(), now]),
   })
   await redis.hSet(mine(me.username), {[word]: '1'})
-  await send(me.username, await welcomeText(word))
+  await note(me.username, word, 'on')
   return ''
 }
 
@@ -228,10 +482,14 @@ async function unfollow(me: Me, word: string): Promise<string> {
   if (!first) {
     await redis.hDel(KW, [word])
     await redis.del(subs(word))
-  } else if (info.owner === me.username) {
-    await redis.hSet(KW, {[word]: JSON.stringify({...info, owner: first[0]})})
+  } else {
+    const owner = info.owner === me.username ? first[0] : info.owner
+    await redis.hSet(KW, {
+      [word]: JSON.stringify({...info, n: left.length, owner}),
+    })
   }
-  await send(me.username, goodbyeText(word))
+  // the conversation records stay: replies there still get the automatic answer
+  await note(me.username, word, 'off')
   return ''
 }
 
@@ -244,33 +502,39 @@ async function setPublic(me: Me, word: string, on: boolean): Promise<string> {
   return ''
 }
 
+// reads: the keyword hash, plus one per keyword the viewer follows (max 3)
 async function list(me: MeRsp): Promise<Keyword[]> {
-  const all = Object.entries(await redis.hGetAll(KW))
-  const rows = await Promise.all(
-    all.map(async ([word, json]) => {
-      const info = JSON.parse(json) as Info
-      const followers = await redis.hGetAll(subs(word))
-      const own = me.username ? followers[me.username] : undefined
+  const user = me.username
+  const followed = new Set(user ? await redis.hKeys(mine(user)) : [])
+  const rows = Object.entries(await redis.hGetAll(KW))
+    .map(([word, json]) => ({info: JSON.parse(json) as Info, word}))
+    .filter(r => r.info.public || me.isMod || followed.has(r.word))
+  const own = await Promise.all(
+    [...followed].map(async word => {
+      const json = user ? await redis.hGet(subs(word), user) : undefined
+      return {seq: json ? (JSON.parse(json) as [number, number])[0] : 0, word}
+    }),
+  )
+  const counts = await freshCounts(own)
+  const fresh = new Map(own.map((o, i) => [o.word, counts[i] ?? 0]))
+  return Promise.all(
+    rows.map(async ({info, word}) => {
+      if (info.n === undefined) {
+        // keywords from before the stored count: count once, keep it
+        info.n = await redis.hLen(subs(word))
+        await redis.hSet(KW, {[word]: JSON.stringify(info)})
+      }
       return {
-        following: !!own,
-        info,
-        seq: own ? (JSON.parse(own) as [number, number])[0] : 0,
-        size: Object.keys(followers).length,
+        at: info.at,
+        followers: info.n,
+        following: followed.has(word),
+        fresh: fresh.get(word) ?? 0,
+        owner: info.owner,
+        public: info.public,
         word,
       }
     }),
   )
-  const seen = rows.filter(r => r.info.public || me.isMod || r.following)
-  const fresh = await freshCounts(seen.map(r => ({seq: r.seq, word: r.word})))
-  return seen.map((r, i) => ({
-    at: r.info.at,
-    followers: r.size,
-    following: r.following,
-    fresh: r.following ? (fresh[i] ?? 0) : 0,
-    owner: r.info.owner,
-    public: r.info.public,
-    word: r.word,
-  }))
 }
 
 /** Watchlist endpoint: optional change, then the viewer's list. */
@@ -312,7 +576,7 @@ export async function onModMail(body: unknown): Promise<void> {
         expiration: new Date(Date.now() + DAY_MS),
       })
       await reddit.modMail.reply({
-        body: replyText(),
+        body: REPLY,
         conversationId: id,
         isAuthorHidden: true,
       })

@@ -23,6 +23,8 @@ import {
   notifyNew,
   onModMail,
   postTitle,
+  sendAlerts,
+  sendDigests,
   TOOL_POST,
   viewer,
   watch,
@@ -125,6 +127,14 @@ async function validateInitialData(body: unknown): Promise<ValidationRsp> {
   }
 }
 
+async function step(run: () => Promise<void>): Promise<void> {
+  try {
+    await run()
+  } catch (err) {
+    console.error(err)
+  }
+}
+
 async function route(
   reqMsg: IncomingMessage,
   rspMsg: ServerResponse,
@@ -161,9 +171,16 @@ async function route(
       case Endpoint.OnPostUpdate:
         rsp = await routePostUpdate(await readJson(reqMsg))
         break
+      case Endpoint.OnSchedulerAlerts:
+        await sendAlerts()
+        rsp = {}
+        break
       case Endpoint.OnSchedulerSync:
-        await importSetting()
-        await notifyNew((await syncSource()).added)
+        // each step on its own: one failing does not block the others
+        await step(importSetting)
+        await step(async () => notifyNew((await syncSource()).added))
+        await step(sendAlerts) // new alerts first, so grouped messages include them
+        await step(sendDigests)
         rsp = {}
         break
       case Endpoint.ValidateSourcePost:

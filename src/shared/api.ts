@@ -53,8 +53,7 @@ const STOP = new Set(
 
 /** Why a keyword is refused, or '' when it is fine. */
 export function keywordError(k: string): string {
-  if (!/^[a-z0-9]{2,20}$/.test(k))
-    return /\s/.test(k) ? 'One word only' : '2–20 letters or digits'
+  if (!/^[a-z0-9]{2,20}$/.test(k)) return '2–20 letters or digits'
   if (STOP.has(k)) return 'Too common, try another'
   return ''
 }
@@ -76,9 +75,9 @@ export const formatLength = (secs: number): string =>
     .map(([n, u]) => `${n}${u}`)
     .join(' ')
 
-/** Keyword match on a normalized title: 2 letters = whole title; 3+ = contains. */
+/** Keyword match: the title contains the keyword (any length). */
 export const kwMatch = (title: string, k: string): boolean =>
-  k.length <= 2 ? title === k : title.includes(k)
+  norm(title).includes(k)
 
 export type Endpoint = (typeof Endpoint)[keyof typeof Endpoint]
 export const Endpoint = {
@@ -86,6 +85,7 @@ export const Endpoint = {
   OnMenuNewPost: 'internal/on/menu/new-post',
   OnModMail: 'internal/on/modmail',
   OnPostUpdate: 'internal/on/post-update',
+  OnSchedulerAlerts: 'internal/scheduler/alerts',
   OnSchedulerSync: 'internal/scheduler/sync',
   Search: 'api/search',
   ValidateInitialData: 'internal/settings/initial-data',
@@ -99,6 +99,7 @@ export const EndpointMethod = {
   [Endpoint.OnMenuNewPost]: 'POST',
   [Endpoint.OnModMail]: 'POST',
   [Endpoint.OnPostUpdate]: 'POST',
+  [Endpoint.OnSchedulerAlerts]: 'POST',
   [Endpoint.OnSchedulerSync]: 'POST',
   [Endpoint.ValidateSourcePost]: 'POST',
   [Endpoint.ValidateInitialData]: 'POST',

@@ -7,9 +7,10 @@ Reddit (Devvit) app for following Indian CBFC film certificates. Built for [r/ke
 | ![Search](https://raw.githubusercontent.com/hedcet/cbfc-tracker/main/docs/search.png) | ![Certificate](https://raw.githubusercontent.com/hedcet/cbfc-tracker/main/docs/certificate.png) | ![Watchlist](https://raw.githubusercontent.com/hedcet/cbfc-tracker/main/docs/watchlist.png) |
 
 - **Search:** every stored film, newest first; tap a row for its certificate.
-- **Watchlist:** follow a one-word keyword (2–20 letters/digits, max 3 per user; mods unlimited). It matches every title containing it, and shows "N new" since you followed.
-  - New keywords are visible to their followers; a mod can make one **public** for everyone. Only the person who added a keyword can remove it; if others still follow it, it passes to the earliest follower.
-  - **Alerts:** each follower gets one modmail conversation from the subreddit (subject = the Title setting) with a message on follow (🔔 ON), on unfollow (🔕 OFF), and whenever new matching certificates arrive. A reply there gets one automatic answer a day ("replies are not read") and the thread is archived again, so mods' modmail stays clean. (Mods who follow keywords get theirs as Mod Discussions.)
+- **Watchlist:** follow a one-word keyword (2–20 letters/digits; 3 per user, mods unlimited) matching every title that contains it; "N new" counts since you followed. Keywords are visible to their followers until a mod makes one **public**. The last follower leaving removes a keyword; an owner leaving passes it to the earliest follower.
+- **Alerts:** one modmail conversation per follower, from the subreddit (subject: the Title setting): 🔔 ON on follow, 🔕 OFF on unfollow, and new matching certificates (at most 5 per keyword and 10 per message, then "+N more").
+  - More than 2 messages in an hour switches to one grouped message an hour (📦); more than 8 in a day, to one a day. A full hour (day) with at most 2 (8) updates switches back. Failed sends are retried.
+  - Replies get one automatic answer a day ("🤖 Automated alerts thread · replies aren’t read, sorry.") and the thread is archived again. Mods get theirs as Mod Discussions.
 
 ## Install (moderators)
 

@@ -7,6 +7,7 @@ import {
   reddit,
   redis,
   runWithContext,
+  scheduler,
   settings,
 } from '@devvit/web/server'
 import {
@@ -26,16 +27,22 @@ let serverURL: string
 const hashes = new Map<string, Map<string, string>>()
 const nums = new Map<string, number>()
 const strs = new Map<string, string>()
+const expires = new Map<string, number>()
 const hash = (k: string): Map<string, string> => {
   if (!hashes.has(k)) hashes.set(k, new Map())
   return hashes.get(k) as Map<string, string>
 }
 Object.assign(redis, {
   del: async (...keys: string[]) => {
-    for (const k of keys) hashes.delete(k)
+    for (const k of keys) {
+      hashes.delete(k)
+      strs.delete(k)
+    }
   },
   get: async (k: string) =>
-    strs.get(k) ?? (nums.has(k) ? String(nums.get(k)) : undefined),
+    (expires.get(k) ?? Number.POSITIVE_INFINITY) < Date.now()
+      ? undefined
+      : (strs.get(k) ?? (nums.has(k) ? String(nums.get(k)) : undefined)),
   hDel: async (k: string, f: string[]) => {
     for (const x of f) hash(k).delete(x)
     return f.length
@@ -53,9 +60,19 @@ Object.assign(redis, {
     nums.set(k, (nums.get(k) ?? 0) + n)
     return nums.get(k)
   },
-  set: async (k: string, v: string) => {
+  set: async (k: string, v: string, o?: {expiration?: Date}) => {
     strs.set(k, v)
+    if (o?.expiration) expires.set(k, o.expiration.getTime())
+    else expires.delete(k)
     return 'OK'
+  },
+})
+// scheduler: jobs are recorded; tests run the alerts job themselves
+const jobs: string[] = []
+Object.assign(scheduler, {
+  runJob: async (o: {name: string}) => {
+    jobs.push(o.name)
+    return o.name
   },
 })
 const sourcePost = `| Title | Language | Category | Length | Ref | When |
@@ -269,21 +286,33 @@ test('watch: rules', async () => {
   assert.equal(await err('ramayana'), 'Log in first')
 })
 
+// message limits: start each test from a clean slate; age a grouped mode
+const resetLimits = (): Promise<unknown> => redis.del('rate', 'digest', 'mode')
+const ageMode = (name: string, m: string, ms: number): Promise<unknown> =>
+  redis.hSet('mode', {[name]: JSON.stringify({at: Date.now() - ms, m})})
+const withSource = async (rows: string, run: () => Promise<unknown>) => {
+  reddit.getPostById = async () => ({body: `${sourcePost}\n${rows}`}) as never
+  await run()
+  reddit.getPostById = async () => ({body: sourcePost}) as never
+}
+
 test('watch: new certificates send one alert per follower', async () => {
   user = {mod: false, name: 'bob'}
   await watch({act: 'follow', word: 'drishyam'}) // bob already has 3
   user = {mod: false, name: 'cat'}
   await watch({act: 'follow', word: 'drishyam'})
   await watch({act: 'follow', word: 'kerala'})
+  await post(Endpoint.OnSchedulerAlerts, {}) // earlier tests' queue
+  await resetLimits()
   const before = sent.length
-  reddit.getPostById = async () =>
-    ({
-      body: `${sourcePost}
-| DRISHYAM KERALA | Malayalam | U | 2h 10m | TVM/1/99/2026 | 2026-11-07 D1 |
+  await withSource(
+    `| DRISHYAM KERALA | Malayalam | U | 2h 10m | TVM/1/99/2026 | 2026-11-07 D1 |
 | DRISHYAM 4 | Tamil | UA 13+ | 2h 1m | CHE/1/99/2026 | 2026-11-07 D1 |`,
-    }) as never
-  await post(Endpoint.OnSchedulerSync, {})
-  reddit.getPostById = async () => ({body: sourcePost}) as never
+    () => post(Endpoint.OnPostUpdate, {post: {id: 't3_src'}}),
+  )
+  assert.equal(sent.length, before) // the edit only queues
+  assert.equal(jobs.at(-1), 'alerts')
+  await post(Endpoint.OnSchedulerAlerts, {})
   const alerts = sent.slice(before)
   assert.deepEqual(alerts.map(a => a.to).sort(), ['ann', 'cat'])
   const cat = alerts.find(a => a.to === 'cat')?.body ?? ''
@@ -295,7 +324,24 @@ test('watch: new certificates send one alert per follower', async () => {
   assert.equal(r.keywords.find(k => k.word === 'drishyam')?.fresh, 2)
 })
 
+test('hourly run: sends waiting alerts itself (a lost job is no problem)', async () => {
+  await resetLimits()
+  const before = sent.length
+  await withSource(
+    '| DRISHYAM 5 | Telugu | U | 2h 3m | HYD/1/5/2026 | 2026-11-08 D1 |',
+    () => post(Endpoint.OnSchedulerSync, {}),
+  )
+  assert.deepEqual(
+    sent
+      .slice(before)
+      .map(m => m.to)
+      .sort(),
+    ['ann', 'cat'],
+  )
+})
+
 test('watch: unfollow passes ownership on; last one out deletes', async () => {
+  await resetLimits()
   user = {mod: false, name: 'ann'}
   await watch({act: 'unfollow', word: 'drishyam'})
   assert.match(
@@ -311,6 +357,153 @@ test('watch: unfollow passes ownership on; last one out deletes', async () => {
   assert.equal(words(await watch()).includes('kerala'), false)
   // one conversation per user: every message to cat is in the same thread
   assert.equal([...convTo.values()].filter(u => u === 'cat').length, 1)
+})
+
+test('limits: 3rd message in an hour waits; toggled back = nothing', async () => {
+  await resetLimits()
+  user = {mod: false, name: 'dan'}
+  const toDan = (): string[] =>
+    sent.filter(m => m.to === 'dan').map(m => m.body.split('\n')[0] ?? '')
+  await watch({act: 'follow', word: 'toxic'}) // 1st this hour: now
+  await watch({act: 'unfollow', word: 'toxic'}) // 2nd: now
+  await watch({act: 'follow', word: 'toxic'}) // 3rd: held, hourly mode
+  await watch({act: 'unfollow', word: 'toxic'}) // held: back to OFF
+  await post(Endpoint.OnSchedulerSync, {}) // OFF already told: nothing
+  assert.deepEqual(toDan(), [
+    '**Keyword added: TOXIC**  ',
+    '**Keyword removed: TOXIC**  ',
+  ])
+  await watch({act: 'follow', word: 'toxic'}) // still hourly: held
+  await post(Endpoint.OnSchedulerSync, {})
+  const last = sent.filter(m => m.to === 'dan').at(-1)?.body ?? ''
+  assert.match(
+    last,
+    /^📦 \*\*1 update, grouped\*\* · max 2 messages\/hour\n\n🔔 Alerts \*\*ON\*\*: TOXIC {2}\nNot interested\? \[Unfollow\]/,
+  )
+})
+
+test('limits: hourly mode ends after a full hour with at most 2', async () => {
+  await resetLimits()
+  user = {mod: false, name: 'dan'}
+  await watch({act: 'unfollow', word: 'toxic'}) // instant
+  await watch({act: 'follow', word: 'toxic'}) // instant
+  await watch({act: 'unfollow', word: 'toxic'}) // held: hourly mode
+  await post(Endpoint.OnSchedulerSync, {}) // the starting hour: no review
+  assert.ok(await redis.hGet('mode', 'dan'))
+  await ageMode('dan', 'hourly', 3600_000) // a full hour, nothing held
+  await post(Endpoint.OnSchedulerSync, {})
+  assert.equal(await redis.hGet('mode', 'dan'), undefined) // instant again
+  await ageMode('dan', 'hourly', 3600_000)
+  await redis.hSet('digest', {
+    dan: JSON.stringify({films: [], msgs: 3, notes: {}}),
+  })
+  await post(Endpoint.OnSchedulerSync, {}) // 3 held in the hour: stays
+  assert.ok(await redis.hGet('mode', 'dan'))
+})
+
+test('limits: over 8 a day, one grouped message a day', async () => {
+  await resetLimits()
+  const earlier = Date.now() - 3 * 3600_000 // 8 today, none this hour
+  await redis.hSet('rate', {dan: JSON.stringify(Array(8).fill(earlier))})
+  user = {mod: false, name: 'dan'}
+  const before = sent.length
+  await watch({act: 'follow', word: 'toxic'}) // 9th today: held, daily
+  assert.match((await redis.hGet('mode', 'dan')) ?? '', /"m":"daily"/)
+  await post(Endpoint.OnSchedulerSync, {}) // not a day yet
+  assert.equal(sent.length, before)
+  await ageMode('dan', 'daily', 24 * 3600_000)
+  await post(Endpoint.OnSchedulerSync, {})
+  assert.match(
+    sent.at(-1)?.body ?? '',
+    /^📦 \*\*1 update, grouped\*\* · max 8 messages\/day/,
+  )
+  assert.equal(await redis.hGet('mode', 'dan'), undefined) // 1 held: normal
+})
+
+test('limits: a failed send is kept for the next run', async () => {
+  await resetLimits()
+  user = {mod: false, name: 'dan'}
+  const {createConversation, reply} = reddit.modMail
+  const fail = async (): Promise<never> => {
+    throw new Error('down')
+  }
+  Object.assign(reddit.modMail, {createConversation: fail, reply: fail})
+  await watch({act: 'unfollow', word: 'toxic'}) // fails: held
+  await ageMode('dan', 'hourly', 3600_000)
+  await post(Endpoint.OnSchedulerSync, {}) // fails again: still held
+  Object.assign(reddit.modMail, {createConversation, reply})
+  assert.ok(await redis.hGet('digest', 'dan'))
+  const before = sent.length
+  await post(Endpoint.OnSchedulerSync, {})
+  assert.match(sent.at(-1)?.body ?? '', /🔕 Alerts \*\*OFF\*\*: TOXIC/)
+  assert.equal(sent.length, before + 1)
+})
+
+test('alerts: over 2 an hour, the rest wait for the grouped message', async () => {
+  user = {mod: false, name: 'eve'}
+  await watch({act: 'follow', word: 'leo'})
+  user = {mod: false, name: 'fay'}
+  await watch({act: 'follow', word: 'leo'})
+  await resetLimits()
+  const now = Date.now()
+  await redis.hSet('rate', {
+    eve: JSON.stringify([now, now]), // already 2 this hour
+    fay: JSON.stringify([now - 2 * 3600_000, now]), // 1 this hour
+  })
+  const before = sent.length
+  await withSource(
+    '| LEO | Tamil | UA 16+ | 2h 44m | CHE/1/7/2026 | 2026-11-08 D1 |',
+    () => post(Endpoint.OnPostUpdate, {post: {id: 't3_src'}}),
+  )
+  await post(Endpoint.OnSchedulerAlerts, {})
+  assert.deepEqual(
+    sent.slice(before).map(m => m.to),
+    ['fay'],
+  )
+  await post(Endpoint.OnSchedulerSync, {}) // the hourly run
+  const eve = sent.slice(before).filter(m => m.to === 'eve')
+  assert.equal(eve.length, 1)
+  assert.match(
+    eve[0]?.body ?? '',
+    /^📦 \*\*1 update, grouped\*\*.*\n\n\*\*LEO: 1 new certificate\*\*/,
+  )
+})
+
+test('alerts: at most 5 a keyword, 10 in all, then "+N more"', async () => {
+  user = {mod: true, name: 'gus'}
+  for (const w of ['zeta', 'zulu']) await watch({act: 'follow', word: w})
+  await resetLimits()
+  const row = (t: string, i: number): string =>
+    `| ${t} | Tamil | U | 2h 1m | ${t.replace(/\W/g, '')}/1/${i}/2026 | 2026-11-08 D1 |`
+  const rows = [
+    ...Array.from({length: 7}, (_, i) => row(`ZETA ${i + 1}`, i)),
+    ...Array.from({length: 2}, (_, i) => row(`ZULU ${i + 1}`, i)),
+    row('1. ZETA^2', 99), // list marker and superscript stay literal
+  ].join('\n')
+  await withSource(rows, () => post(Endpoint.OnSchedulerSync, {}))
+  const body = sent.filter(m => m.to === 'gus').at(-1)?.body ?? ''
+  assert.match(body, /^\*\*ZETA, ZULU: 10 new certificates\*\*/)
+  // ZETA: 8 films, 5 shown; ZULU: 2 shown
+  assert.match(
+    body,
+    /\*\*ZETA\*\* {2}\n(.+ {2}\n){5}\*\*\+3 more\*\*\n\n\*\*ZULU\*\*/,
+  )
+  assert.match(body, /1\\\. ZETA\\\^2/)
+})
+
+test('alerts: at most 5 keywords in a heading', async () => {
+  user = {mod: true, name: 'hal'}
+  const ws = ['kalam', 'kalari', 'kalyan', 'kalki', 'kalpana', 'kalavu']
+  for (const w of ws) await watch({act: 'follow', word: w})
+  await resetLimits()
+  await withSource(
+    '| KALAMKALARIKALYANKALKIKALPANAKALAVU | Tamil | U | 2h | KK/1/1/2026 | 2026-11-08 D1 |',
+    () => post(Endpoint.OnSchedulerSync, {}),
+  )
+  assert.match(
+    sent.filter(m => m.to === 'hal').at(-1)?.body ?? '',
+    /^\*\*KALAM, KALARI, KALAVU, KALKI, KALPANA \+1 more: 1 new certificate\*\*/,
+  )
 })
 
 test('source post: errors show in settings', async () => {
@@ -371,6 +564,6 @@ test('reply in an alerts thread: one automatic answer a day', async () => {
   assert.equal(answers[0]?.to, 'cat')
   assert.equal(
     answers[0]?.body,
-    '🤖 **This is an automated alerts thread**  \nReplies here aren’t read, sorry.',
+    '🤖 **Automated alerts thread** · replies aren’t read, sorry.',
   )
 })

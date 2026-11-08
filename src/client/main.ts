@@ -20,15 +20,13 @@ const ICON = {
   bell: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg>',
   bellOn:
     '<svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0" fill="none"/></svg>',
-  check:
-    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5L20 7"/></svg>',
   close:
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>',
+  globe:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>',
   search:
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>',
   star: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.3 6.4 20.2l1.1-6.2L3 9.6l6.2-.9z"/></svg>',
-  trash:
-    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6"/></svg>',
 }
 
 /* ---------------- helpers ---------------- */
@@ -201,14 +199,10 @@ function renderWatch(): void {
         const acts = [
           `<button class="icon bell ${on ? 'on' : ''}" type="button" ${off} title="${signed ? label : 'Log in to follow'}" aria-label="${label}" aria-pressed="${on}" data-act="${on ? 'unfollow' : 'follow'}" data-id="${id}">${on ? ICON.bellOn : ICON.bell}</button>`,
         ]
-        if (owner)
-          acts.push(
-            `<button class="icon del" type="button" ${off} title="Remove" aria-label="Remove" data-act="unfollow" data-id="${id}">${ICON.trash}</button>`,
-          )
         if (isMod) {
           const a = k.public ? 'Make private' : 'Make public'
           acts.push(
-            `<button class="icon ok ${k.public ? 'on' : ''}" type="button" ${off} title="${a}" aria-label="${a}" aria-pressed="${k.public}" data-act="${k.public ? 'private' : 'public'}" data-id="${id}">${ICON.check}</button>`,
+            `<button class="icon pub ${k.public ? 'on' : ''}" type="button" ${off} title="${a}" aria-label="${a}" aria-pressed="${k.public}" data-act="${k.public ? 'private' : 'public'}" data-id="${id}">${ICON.globe}</button>`,
           )
         }
         return `<div class="row"><div class="grow"><div class="l1">${esc(up(k.word))}${chip}</div><div class="l2">${esc(line2)}</div></div><div class="acts">${acts.join('')}</div></div>`
@@ -222,6 +216,8 @@ async function change(act: WatchReq['act'], word: string): Promise<boolean> {
   if (busy) return false
   busy = true
   renderWatch()
+  // deleted only when the last follower leaves
+  const last = (find(word)?.followers ?? 0) <= 1
   let ok = false
   try {
     const rsp = await fetch(Endpoint.Watch, {
@@ -238,7 +234,7 @@ async function change(act: WatchReq['act'], word: string): Promise<boolean> {
         follow: `Following ${up(word)}`,
         private: `${up(word)} is private`,
         public: `${up(word)} is public`,
-        unfollow: `${find(word) ? 'Unfollowed' : 'Removed'} ${up(word)}`,
+        unfollow: `${last ? 'Removed' : 'Unfollowed'} ${up(word)}`,
       }[act]
       showToast(done)
       if (act === 'follow') jumpTo(word)
@@ -256,7 +252,8 @@ async function change(act: WatchReq['act'], word: string): Promise<boolean> {
 
 async function addKeyword(raw: string): Promise<boolean> {
   const k = norm(raw)
-  const err = addError(k)
+  // "DRISHYAM 3" is two words: say so instead of following DRISHYAM3
+  const err = /\s/.test(raw.trim()) ? 'One word only' : addError(k)
   if (err) {
     wError = err
     renderWatch()

@@ -29,6 +29,9 @@
   },
   "scheduler": {
     "tasks": {
+      "alerts": {
+        "endpoint": "/internal/scheduler/alerts"
+      },
       "sync": {
         "cron": "0 * * * *",
         "endpoint": "/internal/scheduler/sync"

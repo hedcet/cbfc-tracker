@@ -127,11 +127,9 @@ export const lastSeq = async (): Promise<number> =>
 export async function freshCounts(
   list: {seq: number; word: string}[],
 ): Promise<number[]> {
-  const {rows, titles} = await sorted()
+  const {rows} = await sorted()
   return list.map(
-    ({seq, word}) =>
-      rows.filter((r, i) => r[6] > seq && kwMatch(titles[i] ?? '', word))
-        .length,
+    ({seq, word}) => rows.filter(r => r[6] > seq && kwMatch(r[1], word)).length,
   )
 }
 

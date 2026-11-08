@@ -20,7 +20,6 @@
       --ok: #0a8a3a;
       --ok-soft: #e3f5e8;
       --bad: #d93a00;
-      --bad-soft: #fde5dc;
       color-scheme: light dark;
     }
     @media (prefers-color-scheme: dark) {
@@ -35,7 +34,6 @@
         --ok: #3fbf6b;
         --ok-soft: #14301f;
         --bad: #ff6a3d;
-        --bad-soft: #3a1a0f;
       }
     }
     * {
@@ -275,11 +273,7 @@
       background: var(--brand-soft);
       color: var(--brand);
     }
-    .icon.del:hover {
-      background: var(--bad-soft);
-      color: var(--bad);
-    }
-    .icon.ok.on {
+    .icon.pub.on {
       background: var(--ok-soft);
       color: var(--ok);
     }
