@@ -44,7 +44,7 @@
     "items": [
       {
         "label": "Add CBFC Tracker",
-        "description": "Add the CBFC Tracker tool (Watchlist + Search) to this subreddit, using the title from the app settings.",
+        "description": "Watchlist and search for CBFC certificates",
         "location": "subreddit",
         "forUserType": "moderator",
         "endpoint": "/internal/on/menu/new-post"

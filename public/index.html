@@ -447,22 +447,22 @@
         <button
           type="button"
           role="tab"
-          data-tab="watch"
+          data-tab="search"
           class="on"
           aria-selected="true"
-          aria-controls="watch"
+          aria-controls="search"
         ></button>
         <button
           type="button"
           role="tab"
-          data-tab="search"
+          data-tab="watch"
           aria-selected="false"
-          aria-controls="search"
+          aria-controls="watch"
         ></button>
       </div>
       <span class="demo">DEMO DATA</span>
 
-      <div class="pane on" id="watch" role="tabpanel">
+      <div class="pane" id="watch" role="tabpanel">
         <div class="bar">
           <input id="wInput" class="input" type="text" aria-label="Film name">
           <button class="btn fill" id="wAdd" type="button">Add</button>
@@ -472,7 +472,7 @@
         <div class="pager" id="wPager"></div>
       </div>
 
-      <div class="pane" id="search" role="tabpanel">
+      <div class="pane on" id="search" role="tabpanel">
         <div class="bar">
           <div class="inwrap">
             <input
