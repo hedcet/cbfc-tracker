@@ -4,7 +4,7 @@ A Reddit tool that lets a film community follow Indian CBFC (censor board) certi
 
 - **Search:** find any certified film and open its certificate details.
 - **Watchlist:** follow a film name and see "N new" when a matching certificate is issued.
-- **Archive:** each day at the set time, a new post lists every certificate not archived yet, in the same table format as the source post. Each certificate is marked once archived, so it is never posted twice.
+- **Archive:** each day at 00:00 IST, a new post lists every certificate not archived yet, in the same table format as the source post. Each certificate is marked once archived, so it is never posted twice.
 
 Built for [r/kerala_boxoffice](https://www.reddit.com/r/kerala_boxoffice/). It works in any subreddit that has a CBFC tracker post.
 
@@ -42,12 +42,12 @@ Built for [r/kerala_boxoffice](https://www.reddit.com/r/kerala_boxoffice/). It w
 
 ## Settings
 
-| Setting                 | What it does                                                                                                                                                                                                         | Default                                               |
-| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
-| **Title**               | Title of the post created by "Add CBFC Tracker"                                                                                                                                                                      | 🎬 CBFC Certificates: Search & Watchlist (Unofficial) |
-| **Archive time (IST)**  | When to post the new certificates since the last archive. Each certificate is posted once. Initial data counts as already archived. Choose Off to stop it.                                                           | 00:00                                                 |
-| **Source post**         | Link of the live tracker post that `cbfc.js` keeps updating. Read-only, never edited. Optional: without it the tool is search only. If set, saving shows an error when it is not a post or has no certificate table. | empty                                                 |
-| **Initial data (JSON)** | One-time import of older certificates. Certificates are matched by Ref (certificate number), so pasting the same data again never creates duplicates.                                                                | empty                                                 |
+| Setting                       | What it does                                                                                                                                                                                                         | Default                                               |
+| ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| **Title**                     | Title of the post created by "Add CBFC Tracker"                                                                                                                                                                      | 🎬 CBFC Certificates: Search & Watchlist (Unofficial) |
+| **Daily archive (00:00 IST)** | On: each day at 00:00 IST, a new post lists the new certificates since the last archive. Each certificate is posted once. Initial data counts as already archived.                                                   | On                                                    |
+| **Source post**               | Link of the live tracker post that `cbfc.js` keeps updating. Read-only, never edited. Optional: without it the tool is search only. If set, saving shows an error when it is not a post or has no certificate table. | empty                                                 |
+| **Initial data (JSON)**       | One-time import of older certificates. Certificates are matched by Ref (certificate number), so pasting the same data again never creates duplicates.                                                                | empty                                                 |
 
 ### Source post format
 

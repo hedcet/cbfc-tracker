@@ -22,19 +22,11 @@
         "helpText": "Title of the post created by \"Add CBFC Tracker\"",
         "defaultValue": "🎬 CBFC Certificates: Search & Watchlist (Unofficial)"
       },
-      "archiveTime": {
-        "type": "select",
-        "label": "Archive time (IST)",
-        "helpText": "When to post the new certificates since the last archive",
-        "options": [
-          {"label": "Off", "value": "off"},
-          {"label": "00:00", "value": "00:00"},
-          {"label": "06:00", "value": "06:00"},
-          {"label": "12:00", "value": "12:00"},
-          {"label": "18:00", "value": "18:00"},
-          {"label": "21:00", "value": "21:00"}
-        ],
-        "defaultValue": "00:00"
+      "archive": {
+        "type": "boolean",
+        "label": "Daily archive (00:00 IST)",
+        "helpText": "Post the new certificates since the last archive",
+        "defaultValue": true
       },
       "trackerPost": {
         "type": "string",
