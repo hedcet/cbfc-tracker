@@ -260,8 +260,8 @@ function renderWatch(): void {
     (list.length
       ? [
           `${list.length} keyword${list.length === 1 ? '' : 's'}`,
-          signed ? `${list.filter(follows).length} you follow` : '',
-          isMod && toApprove ? `${toApprove} to approve` : '',
+          signed ? `${list.filter(follows).length} following` : '',
+          isMod && toApprove ? `${toApprove} pending` : '',
         ]
           .filter(Boolean)
           .join(' · ')
@@ -278,7 +278,7 @@ function renderWatch(): void {
         const chip = n
           ? `<span class="chip" title="Show matches" data-act="search-for" data-id="${k.id}">${n} new ›</span>`
           : ''
-        const line2 = `${followerCount(k)} following${owner ? ' · yours' : isMod ? ` · added by ${k.owner}` : ''}`
+        const line2 = `${followerCount(k)} follower${followerCount(k) === 1 ? '' : 's'}${owner ? ' · yours' : isMod ? ` · added by ${k.owner}` : ''}`
         const label = on ? 'Unfollow' : 'Follow'
         const acts = [
           `<button class="icon bell ${on ? 'on' : ''}" type="button" ${signed ? '' : 'disabled'} title="${signed ? label : 'Log in to follow'}" aria-label="${label}" aria-pressed="${on}" data-act="follow" data-id="${k.id}">${on ? ICON.bellOn : ICON.bell}</button>`,
