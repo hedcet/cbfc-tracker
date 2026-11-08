@@ -11,10 +11,10 @@ import {
 } from '../shared/api.ts'
 
 // Search asks the server for one page at a time (source post + initial data).
-// The watchlist still runs on demo keywords in the browser; v3 moves it to the server.
+// The watchlist still runs on demo keywords in the browser (not stored on the server yet).
 
 /* ---------------- settings ---------------- */
-const MAX_FOLLOW = 3 // v1 follow limit per user (mods: no limit)
+const MAX_FOLLOW = 3 // follow limit per user (mods: no limit)
 const KEYWORD = /^[a-z0-9]{2,20}$/ // one word; the longest word in any title is 18
 const STOP = new Set(
   'the of and a an in on to is it my i me we you he she his her love man life story part movie film'.split(

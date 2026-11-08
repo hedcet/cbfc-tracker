@@ -43,7 +43,7 @@
     "subreddit": {
       "initialData": {
         "defaultValue": "",
-        "helpText": "One-time import; clear after",
+        "helpText": "One-time import on save; clear after",
         "label": "Initial data (JSON)",
         "type": "paragraph",
         "validationEndpoint": "/internal/settings/initial-data"
