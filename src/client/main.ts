@@ -1,9 +1,4 @@
-import {
-  type CertsRsp,
-  Endpoint,
-  type MeRsp,
-  type SyncInfo,
-} from '../shared/api.ts'
+import {type CertsRsp, Endpoint, type MeRsp} from '../shared/api.ts'
 
 // Search uses the real certificates stored by the server (source post + initial data).
 // The watchlist still runs on demo keywords in the browser; v3 moves it to the server.
@@ -94,7 +89,6 @@ type Keyword = {
 
 let films: Film[] = []
 let certsState: 'loading' | 'ready' | 'error' = 'loading'
-let sync: SyncInfo | null = null
 
 let viewer = '' // set from the server; '' = logged out
 let isMod = false
@@ -406,22 +400,12 @@ function renderSearch(): void {
       : `<div class="empty">Not certified yet${word ? `<br><button class="btn sm" type="button" data-act="watch">Watch ${esc(up(word))}</button>` : ''}</div>`)
 }
 
-// "12,377 films"; mods also see when the source post was last read, or what is wrong
+// "12,377 films"
 function totalLine(n: number): string {
   if (certsState === 'loading') return 'Loading…'
   if (certsState === 'error')
-    return '<span class="err-text">Couldn’t load certificates</span>'
-  const films = n ? `${n.toLocaleString('en-IN')} films` : 'No certificates yet'
-  if (!isMod) return films
-  if (sync?.error)
-    return `${films} · <span class="err-text">${esc(sync.error)}</span>`
-  if (!sync?.at) return `${films} · source post read within 15 min`
-  const at = new Date(sync.at).toLocaleTimeString('en-GB', {
-    timeZone: 'Asia/Kolkata',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-  return `${films} · source post read at ${at}`
+    return '<span class="err-text">Couldn’t load films</span>'
+  return n ? `${n.toLocaleString('en-IN')} films` : 'No films yet'
 }
 
 let sheetOpen = false
@@ -550,7 +534,6 @@ async function loadCerts(): Promise<void> {
       date,
       seen: seq,
     }))
-    sync = data.sync
     clock = films.reduce((m, f) => Math.max(m, f.seen), 0)
     certsState = 'ready'
   } catch (err) {

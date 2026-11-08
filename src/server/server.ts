@@ -9,7 +9,7 @@ import {
   type MeRsp,
 } from '../shared/api.ts'
 import {postId} from './certs.ts'
-import {allCerts, importJson, syncSource, syncStatus} from './store.ts'
+import {allCerts, importJson, syncSource} from './store.ts'
 
 type ValidationRsp = {success: boolean; error?: string}
 type EmptyRsp = Record<string, never>
@@ -50,7 +50,7 @@ async function route(
         rsp = await routeMe()
         break
       case Endpoint.Certs:
-        rsp = {certs: await allCerts(), sync: await syncStatus()}
+        rsp = {certs: await allCerts()}
         break
       case Endpoint.OnMenuNewPost:
         rsp = await routeMenuNewPost()

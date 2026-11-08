@@ -149,6 +149,4 @@ test('sync reads the source post; films only', async () => {
     'CHE/1/210/2026',
     'TVM/1/45/2026',
   ])
-  assert.equal(certs.sync?.added, 1)
-  assert.equal(certs.sync?.error, '')
 })

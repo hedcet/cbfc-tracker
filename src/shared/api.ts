@@ -10,8 +10,8 @@ export type CertRow = [string, string, string, string, number, string, number]
 /** Result of the last source post read. */
 export type SyncInfo = {at: number; added: number; total: number; error: string}
 
-/** All certificates, plus the last sync for mods. */
-export type CertsRsp = {certs: CertRow[]; sync: SyncInfo | null}
+/** All certificates. */
+export type CertsRsp = {certs: CertRow[]}
 
 export type Endpoint = (typeof Endpoint)[keyof typeof Endpoint]
 export const Endpoint = {
