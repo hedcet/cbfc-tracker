@@ -198,6 +198,8 @@ const visible = (k: Keyword): boolean => k.approved || isMod || follows(k)
 function watchOrder(): Keyword[] {
   const mine = (k: Keyword): number =>
     follows(k) || k.owner === viewer ? 0 : 1
+  // mods: every keyword, newest added first
+  if (isMod) return keywords.slice().sort((a, b) => b.addedAt - a.addedAt)
   return keywords
     .filter(visible)
     .sort(
