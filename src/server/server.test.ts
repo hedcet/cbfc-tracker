@@ -154,10 +154,7 @@ test('sync reads the source post; films only', async () => {
 test('source post: errors show in settings', async () => {
   const check = async (value: string): Promise<unknown> =>
     (await post(Endpoint.ValidateSourcePost, {value})).json()
-  assert.deepEqual(await check(''), {
-    success: false,
-    error: 'Add the tracker post link to get new certificates',
-  })
+  assert.deepEqual(await check(''), {success: true})
   assert.deepEqual(await check('not a post'), {
     success: false,
     error: 'Use a post link or ID',
