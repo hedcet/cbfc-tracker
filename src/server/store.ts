@@ -99,6 +99,9 @@ export async function syncSource(): Promise<SyncInfo> {
     total: await redis.hLen(CERTS),
     error,
   }
+  console.log(
+    `source post: ${added} added, ${info.total} total${error ? `, ${error}` : ''}`,
+  )
   await redis.hSet(SYNC, {
     at: String(info.at),
     added: String(added),

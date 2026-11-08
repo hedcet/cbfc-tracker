@@ -76,7 +76,7 @@ A JSON list in the same shape the app reads from the source post:
 
 `length` is written like the source post (`2h 7s`). The CBFC portal format MM.SS (`120.07`) also works.
 
-**Making the JSON from the cbfc database:** in the `cbfc` project, run `node export.js` for everything, or `node export.js 2025-06` for one month. It writes `cbfc-<period>.json`. All data is about 1.7 MB, so if the settings box refuses it, paste one year or one month at a time; each save adds to what is already stored.
+**Making the JSON from the cbfc database:** in the `cbfc` project, run `node export.js` for everything, or `node export.js 2025-06` for one month. It writes `cbfc-<period>-snapshot-<date>.json`, like `cbfc-all-snapshot-2026-11-08.json`. All data is about 1.7 MB, so if the settings box refuses it, paste one year or one month at a time; each save adds to what is already stored.
 
 ## Develop
 

@@ -123,6 +123,7 @@ async function routeMenuSync(): Promise<UiResponse> {
 async function routePostUpdate(body: unknown): Promise<EmptyRsp> {
   const post = (body as {post?: {id?: string}}).post
   const source = postId((await settings.get<string>('trackerPost')) ?? '')
+  console.log(`post update: ${post?.id ?? '?'} (source ${source || 'not set'})`)
   if (post?.id && post.id === source) await syncSource()
   return {}
 }
