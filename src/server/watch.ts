@@ -1,6 +1,7 @@
 // Watchlist: keywords, followers and their modmail alerts.
 
 import {context, reddit, redis, scheduler, settings} from '@devvit/web/server'
+import type {UiResponse} from '@devvit/web/shared'
 import {
   formatLength,
   type Keyword,
@@ -585,4 +586,88 @@ export async function onModMail(body: unknown): Promise<void> {
     console.error(`auto reply to ${user}:`, err)
   }
   await archive(id)
+}
+
+// TEMPORARY (testing): one sample of every message pattern, to the mod who asks
+export async function preview(): Promise<UiResponse> {
+  const me = await viewer()
+  if (!me.username) return {showToast: 'Log in first'}
+  let i = 0
+  const film = (
+    title: string,
+    words: string[],
+    language = 'Malayalam',
+  ): Film => ({
+    cert: {
+      category: 'UA 13+',
+      date: '',
+      language,
+      ref: `T/${i++}`,
+      secs: 8040,
+      title,
+    },
+    words,
+  })
+  const many = [
+    ...[3, 4, 5, 6, 7, 8, 9].map(n => film(`DRISHYAM ${n}`, ['drishyam'])),
+    ...['OM SHANTI OM', 'ROMANCHAM 2', 'SOMAN'].map(t => film(t, ['om'])),
+    film('ROMEO RAMAN', ['om', 'ram']),
+    ...['RAMAYANA', 'VIKRAM 2'].map(t => film(t, ['ram'], 'Tamil')),
+  ]
+  const url = await trackerUrl()
+  const grouped = (m: Mode['m'], notes: [string, State][], films: Film[]) =>
+    [
+      digestHead(notes.length + films.length, m),
+      ...(notes.length ? [notesText(notes, url)] : []),
+      ...(films.length ? [alertText(films)] : []),
+    ].join('\n\n')
+  const samples = [
+    await welcomeText('drishyam'),
+    goodbyeText('drishyam'),
+    alertText([film('DRISHYAM 3', ['drishyam'])]),
+    alertText([
+      film('DRISHYAM 3', ['drishyam']),
+      film('DRISHYAM 4', ['drishyam'], 'Tamil'),
+      film('DRISHYAM KERALA', ['drishyam', 'kerala']),
+    ]),
+    alertText(many),
+    alertText([
+      film('KALAM KALARI KALAVU KALKI KALPANA KALYAN', [
+        'kalam',
+        'kalari',
+        'kalavu',
+        'kalki',
+        'kalpana',
+        'kalyan',
+      ]),
+    ]),
+    alertText([
+      film('1. NENJAM^2', ['nenjam']),
+      film('-MAN*GO_ #1 [X]', ['nenjam'], 'Tamil'),
+    ]),
+    grouped(
+      'hourly',
+      [
+        ['toxic', 'on'],
+        ['leo', 'off'],
+      ],
+      many.slice(0, 3),
+    ),
+    grouped(
+      'daily',
+      [
+        ['om', 'off'],
+        ['ram', 'off'],
+      ],
+      [],
+    ),
+    REPLY,
+  ]
+  for (const body of samples) await send(me.username, body)
+  return {
+    showToast: {
+      appearance: 'success',
+      text: `Sent ${samples.length} sample messages`,
+    },
+  }
 }

@@ -24,6 +24,8 @@ const ICON = {
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>',
   globe:
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>',
+  next: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>',
+  prev: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>',
   search:
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>',
   star: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.3 6.4 20.2l1.1-6.2L3 9.6l6.2-.9z"/></svg>',
@@ -98,7 +100,8 @@ function pager(
   page[key] = Math.min(page[key], pages - 1)
   const el = $(id)
   el.style.visibility = pages > 1 ? 'visible' : 'hidden'
-  el.innerHTML = `<button class="btn sm" type="button" ${page[key] ? '' : 'disabled'}>‹ Prev</button><span>Page ${page[key] + 1} of ${pages}</span><button class="btn sm" type="button" ${page[key] < pages - 1 ? '' : 'disabled'}>Next ›</button>`
+  // ( ‹ )  2 / 9  ( › )
+  el.innerHTML = `<button class="icon round" type="button" title="Previous page" aria-label="Previous page" ${page[key] ? '' : 'disabled'}>${ICON.prev}</button><span aria-live="polite">${page[key] + 1} / ${pages}</span><button class="icon round" type="button" title="Next page" aria-label="Next page" ${page[key] < pages - 1 ? '' : 'disabled'}>${ICON.next}</button>`
   ;(el.firstElementChild as HTMLButtonElement).onclick = () => {
     page[key]--
     rerender()
