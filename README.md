@@ -7,7 +7,9 @@ Reddit (Devvit) app for following Indian CBFC film certificates. Built for [r/ke
 | ![Search](https://raw.githubusercontent.com/hedcet/cbfc-tracker/main/docs/search.png) | ![Certificate](https://raw.githubusercontent.com/hedcet/cbfc-tracker/main/docs/certificate.png) | ![Watchlist](https://raw.githubusercontent.com/hedcet/cbfc-tracker/main/docs/watchlist.png) |
 
 - **Search:** every stored film, newest first; tap a row for its certificate.
-- **Watchlist** (demo data for now): follow a one-word keyword (2–20 letters/digits, max 3 per user) and see "N new" certificates since you followed. Mods approve keywords.
+- **Watchlist:** follow a one-word keyword (2–20 letters/digits, max 3 per user; mods unlimited). It matches every title containing it, and shows "N new" since you followed.
+  - New keywords are visible to their followers; a mod can make one **public** for everyone. Only the person who added a keyword can remove it; if others still follow it, it passes to the earliest follower.
+  - **Alerts:** each follower gets one modmail conversation from the subreddit (subject = the Title setting) with a message on follow (🔔 ON), on unfollow (🔕 OFF), and whenever new matching certificates arrive.
 
 ## Install (moderators)
 
@@ -56,4 +58,4 @@ npm run playtest  # live on r/cbfc_tracker_dev
 npm run upload    # publish a new version
 ```
 
-`src/client` page code · `src/server` app server (`certs.ts` parses, `store.ts` stores in Redis) · `src/shared/api.ts` shared types · `public/index.html` page.
+`src/client` page code · `src/server` app server (`certs.ts` parses, `store.ts` stores certificates, `watch.ts` keywords and alerts) · `src/shared/api.ts` shared types · `public/index.html` page.

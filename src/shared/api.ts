@@ -12,19 +12,52 @@ export const PAGE = 6
 
 /**
  * One page of search results, newest first.
- * total: all matches; exact: a title equals the query; clock: newest seq;
+ * total: all matches; exact: a title equals the query;
  * hints: two random one-word titles for the search and watchlist placeholders.
  */
 export type SearchRsp = {
   total: number
   certs: CertRow[]
   exact: boolean
-  clock: number
   hints: [string, string]
 }
 
-/** New certificates per keyword since its follow seq (same order as asked). */
-export type NewRsp = {counts: number[]}
+/** A watchlist keyword as the viewer sees it. */
+export type Keyword = {
+  at: number // added, ms
+  followers: number
+  following: boolean
+  fresh: number // matching certificates since the viewer followed
+  owner: string // username, without u/
+  public: boolean
+  word: string // normalized: lowercase letters and digits
+}
+
+export type WatchRsp = {keywords: Keyword[]}
+
+/** Watchlist change; the reply is the new list, or an error message. */
+export type WatchReq = {
+  act: 'follow' | 'unfollow' | 'public' | 'private'
+  word: string
+}
+export type WatchActRsp = WatchRsp | ErrorRsp
+
+/** Follow limit per user (mods: no limit). */
+export const MAX_FOLLOW = 3
+
+const STOP = new Set(
+  'the of and a an in on to is it my i me we you he she his her love man life story part movie film'.split(
+    ' ',
+  ),
+)
+
+/** Why a keyword is refused, or '' when it is fine. */
+export function keywordError(k: string): string {
+  if (!/^[a-z0-9]{2,20}$/.test(k))
+    return /\s/.test(k) ? 'One word only' : '2–20 letters or digits'
+  if (STOP.has(k)) return 'Too common, try another'
+  return ''
+}
 
 /** Title or query → lowercase letters and digits only. */
 export const norm = (t: string): string =>
@@ -50,22 +83,22 @@ export const kwMatch = (title: string, k: string): boolean =>
 export type Endpoint = (typeof Endpoint)[keyof typeof Endpoint]
 export const Endpoint = {
   Me: 'api/me',
-  New: 'api/new',
   OnMenuNewPost: 'internal/on/menu/new-post',
   OnPostUpdate: 'internal/on/post-update',
   OnSchedulerSync: 'internal/scheduler/sync',
   Search: 'api/search',
   ValidateInitialData: 'internal/settings/initial-data',
   ValidateSourcePost: 'internal/settings/source-post',
+  Watch: 'api/watch',
 } as const
 
 export const EndpointMethod = {
   [Endpoint.Me]: 'GET',
   [Endpoint.Search]: 'GET',
-  [Endpoint.New]: 'GET',
   [Endpoint.OnMenuNewPost]: 'POST',
   [Endpoint.OnPostUpdate]: 'POST',
   [Endpoint.OnSchedulerSync]: 'POST',
   [Endpoint.ValidateSourcePost]: 'POST',
   [Endpoint.ValidateInitialData]: 'POST',
+  [Endpoint.Watch]: 'POST',
 } as const satisfies {[endpoint: string]: 'GET' | 'POST'}

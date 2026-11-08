@@ -3,7 +3,6 @@ import {reddit, redis, settings} from '@devvit/web/server'
 import {
   type CertRow,
   kwMatch,
-  type NewRsp,
   norm,
   PAGE,
   type SearchRsp,
@@ -33,14 +32,14 @@ const BATCH = 500
 
 type Stored = [string, string, string, number, string, number, 0 | 1]
 
-/** Adds certificates not stored yet (matched by Ref). Returns how many were added. */
-async function addCerts(list: Cert[], archived: boolean): Promise<number> {
+/** Adds certificates not stored yet (matched by Ref). Returns the ones added. */
+async function addCerts(list: Cert[], archived: boolean): Promise<Cert[]> {
   const today = todayIST()
   const fresh = new Map<string, Cert>()
   for (const c of list)
     if (isValid(c, today) && !fresh.has(c.ref)) fresh.set(c.ref, c)
   const refs = [...fresh.keys()]
-  let added = 0
+  const added: Cert[] = []
   for (let i = 0; i < refs.length; i += BATCH) {
     const chunk = refs.slice(i, i + BATCH)
     const known = await redis.hMGet(CERTS, chunk)
@@ -67,9 +66,9 @@ async function addCerts(list: Cert[], archived: boolean): Promise<number> {
       fields[ref] = JSON.stringify(row)
     })
     await redis.hSet(CERTS, fields)
-    added += todo.length
+    for (const ref of todo) added.push(fresh.get(ref) as Cert)
   }
-  if (added) await redis.incrBy(VER, 1)
+  if (added.length) await redis.incrBy(VER, 1)
   return added
 }
 
@@ -114,26 +113,26 @@ export async function searchCerts(q: string, page: number): Promise<SearchRsp> {
   const start = Math.max(0, page) * PAGE
   return {
     certs: hits.slice(start, start + PAGE),
-    clock: rows.reduce((m, r) => Math.max(m, r[6]), 0),
     exact: !!k && titles.includes(k),
     hints: [pick(), pick()],
     total: hits.length,
   }
 }
 
-/** For each "keyword:seq", how many certificates matched after that seq. */
-export async function newCounts(list: string[]): Promise<NewRsp> {
+/** Newest certificate seq: a follow counts what comes after it. */
+export const lastSeq = async (): Promise<number> =>
+  Number((await redis.get(SEQ)) ?? 0)
+
+/** How many certificates match each word since its seq (same order). */
+export async function freshCounts(
+  list: {seq: number; word: string}[],
+): Promise<number[]> {
   const {rows, titles} = await sorted()
-  return {
-    counts: list.map(item => {
-      const [k = '', since = '0'] = item.split(':')
-      const word = norm(k)
-      if (!word) return 0
-      return rows.filter(
-        (r, i) => r[6] > Number(since) && kwMatch(titles[i] ?? '', word),
-      ).length
-    }),
-  }
+  return list.map(
+    ({seq, word}) =>
+      rows.filter((r, i) => r[6] > seq && kwMatch(titles[i] ?? '', word))
+        .length,
+  )
 }
 
 /** Imports initial data JSON once (same text is skipped); throws on bad JSON. */
@@ -143,7 +142,7 @@ export async function importText(raw: string): Promise<void> {
   const sum = createHash('sha1').update(text).digest('hex')
   if ((await redis.get(IMPORT)) === sum) return
   const list = parseJson(text)
-  const added = await addCerts(list, true) // imported rows count as archived
+  const added = (await addCerts(list, true)).length // imported rows count as archived
   console.log(`initial data: ${added} added, ${list.length - added} skipped`)
   await redis.set(IMPORT, sum)
 }
@@ -158,18 +157,19 @@ export async function importSetting(): Promise<void> {
 }
 
 /** Stores the certificates of a source post table (newest first in the post). */
-export const addPostRows = (rows: Cert[]): Promise<number> =>
+/** Stores a source post table (newest first in the post); returns the new ones. */
+export const addPostRows = (rows: Cert[]): Promise<Cert[]> =>
   addCerts(rows.slice().reverse(), false) // oldest first: newest gets the highest seq
 
 /** Reads the source post set in settings and stores new certificates. */
 export async function syncSource(): Promise<{
-  added: number
+  added: Cert[]
   total: number
   error: string
 }> {
   const link = (await settings.get<string>('trackerPost')) ?? ''
   const id = postId(link)
-  let added = 0
+  let added: Cert[] = []
   let error = ''
   if (!id) {
     // optional: no source post is fine (search only), not an error
@@ -187,14 +187,14 @@ export async function syncSource(): Promise<{
   }
   const total = await redis.hLen(CERTS)
   console.log(
-    `source post: ${added} added, ${total} total${error ? `, ${error}` : ''}`,
+    `source post: ${added.length} added, ${total} total${error ? `, ${error}` : ''}`,
   )
   return {added, error, total}
 }
 
 /** Reads the source post when nobody has in the last 15 minutes (catches missed edits). */
-export async function syncIfStale(): Promise<void> {
-  if (await redis.get(FRESH)) return
+export async function syncIfStale(): Promise<Cert[]> {
+  if (await redis.get(FRESH)) return []
   await redis.set(FRESH, '1', {expiration: new Date(Date.now() + FRESH_MS)})
-  await syncSource()
+  return (await syncSource()).added
 }

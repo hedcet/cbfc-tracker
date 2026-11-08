@@ -1,33 +1,32 @@
 import type {IncomingMessage, ServerResponse} from 'node:http'
-import {context, reddit, redis, settings} from '@devvit/web/server'
+import {reddit, redis, settings} from '@devvit/web/server'
 import type {PartialJsonValue, UiResponse} from '@devvit/web/shared'
 import {
   Endpoint,
   EndpointMethod,
   type ErrorRsp,
   type MeRsp,
-  type NewRsp,
   type SearchRsp,
+  type WatchActRsp,
+  type WatchReq,
 } from '../shared/api.ts'
 import {parseTable, postId} from './certs.ts'
 import {
   addPostRows,
   importSetting,
   importText,
-  newCounts,
   searchCerts,
   syncIfStale,
   syncSource,
 } from './store.ts'
-
-const TOOL_POST = 'post' // id of the one tool post
+import {notifyNew, postTitle, TOOL_POST, viewer, watch} from './watch.ts'
 
 type ValidationRsp = {success: boolean; error?: string}
 type EmptyRsp = Record<string, never>
 type AnyRsp =
   | MeRsp
   | SearchRsp
-  | NewRsp
+  | WatchActRsp
   | UiResponse
   | ValidationRsp
   | ErrorRsp
@@ -53,15 +52,6 @@ function writeJson<T extends PartialJsonValue>(
   rsp.end(body)
 }
 
-async function routeMe(): Promise<MeRsp> {
-  const user = await reddit.getCurrentUser()
-  if (!user) return {isMod: false, username: null}
-  const perms = context.subredditName
-    ? await user.getModPermissionsForSubreddit(context.subredditName)
-    : []
-  return {isMod: perms.length > 0, username: user.username}
-}
-
 // "Add CBFC Tracker" (mod menu): one tool post per subreddit; the title comes
 // from settings. If it already exists (not removed), go there instead.
 async function routeMenuNewPost(): Promise<UiResponse> {
@@ -78,10 +68,7 @@ async function routeMenuNewPost(): Promise<UiResponse> {
       // gone: make a new one
     }
   }
-  const title =
-    (await settings.get<string>('postTitle'))?.trim() ||
-    '🎬 CBFC Certificates: Search & Watchlist (Unofficial)'
-  const post = await reddit.submitCustomPost({title})
+  const post = await reddit.submitCustomPost({title: await postTitle()})
   await redis.set(TOOL_POST, post.id)
   return {
     navigateTo: post.url,
@@ -94,7 +81,8 @@ async function routePostUpdate(body: unknown): Promise<EmptyRsp> {
   const post = (body as {post?: {id?: string}}).post
   const source = postId((await settings.get<string>('trackerPost')) ?? '')
   console.log(`post update: ${post?.id ?? '?'} (source ${source || 'not set'})`)
-  if (post?.id && post.id === source) await syncSource()
+  if (post?.id && post.id === source)
+    await notifyNew((await syncSource()).added)
   return {}
 }
 
@@ -111,7 +99,7 @@ async function validateSourcePost(body: unknown): Promise<ValidationRsp> {
   }
   const rows = parseTable(text)
   if (!rows.length) return {error: 'No certificate table found', success: false}
-  await addPostRows(rows) // stored right away, no wait for the hourly sync
+  await notifyNew(await addPostRows(rows)) // stored right away, no wait for the hourly sync
   return {success: true}
 }
 
@@ -145,19 +133,15 @@ async function route(
   } else {
     switch (endpoint) {
       case Endpoint.Me:
-        rsp = await routeMe()
+        rsp = await viewer()
         break
       case Endpoint.Search:
         // opening the post (first page, no query) also catches missed source edits
-        if (!query.get('q') && !Number(query.get('page'))) await syncIfStale()
+        if (!query.get('q') && !Number(query.get('page')))
+          await notifyNew(await syncIfStale())
         rsp = await searchCerts(
           query.get('q') ?? '',
           Number(query.get('page')) || 0,
-        )
-        break
-      case Endpoint.New:
-        rsp = await newCounts(
-          (query.get('k') ?? '').split(',').filter(Boolean).slice(0, 20),
         )
         break
       case Endpoint.OnMenuNewPost:
@@ -168,7 +152,7 @@ async function route(
         break
       case Endpoint.OnSchedulerSync:
         await importSetting()
-        await syncSource()
+        await notifyNew((await syncSource()).added)
         rsp = {}
         break
       case Endpoint.ValidateSourcePost:
@@ -176,6 +160,9 @@ async function route(
         break
       case Endpoint.ValidateInitialData:
         rsp = await validateInitialData(await readJson(reqMsg))
+        break
+      case Endpoint.Watch:
+        rsp = await watch((await readJson(reqMsg)) as Partial<WatchReq>)
         break
       default:
         endpoint satisfies never

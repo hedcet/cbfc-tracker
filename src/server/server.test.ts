@@ -13,8 +13,9 @@ import {
   Endpoint,
   type ErrorRsp,
   type MeRsp,
-  type NewRsp,
   type SearchRsp,
+  type WatchActRsp,
+  type WatchRsp,
 } from '../shared/api.ts'
 import {onReq} from './server.ts'
 
@@ -30,9 +31,18 @@ const hash = (k: string): Map<string, string> => {
   return hashes.get(k) as Map<string, string>
 }
 Object.assign(redis, {
+  del: async (...keys: string[]) => {
+    for (const k of keys) hashes.delete(k)
+  },
   get: async (k: string) =>
     strs.get(k) ?? (nums.has(k) ? String(nums.get(k)) : undefined),
+  hDel: async (k: string, f: string[]) => {
+    for (const x of f) hash(k).delete(x)
+    return f.length
+  },
+  hGet: async (k: string, f: string) => hash(k).get(f),
   hGetAll: async (k: string) => Object.fromEntries(hash(k)),
+  hKeys: async (k: string) => [...hash(k).keys()],
   hLen: async (k: string) => hash(k).size,
   hMGet: async (k: string, f: string[]) => f.map(x => hash(k).get(x) ?? null),
   hSet: async (k: string, o: Record<string, string>) => {
@@ -59,11 +69,31 @@ Object.assign(settings, {
 })
 reddit.getPostById = async () => ({body: sourcePost}) as never
 
+// modmail: one conversation per user, every message recorded
+const sent: {to: string; body: string}[] = []
+const convTo = new Map<string, string>()
+Object.assign(reddit.modMail, {
+  archiveConversation: async () => ({}),
+  createConversation: async (o: {to: string; body: string}) => {
+    const id = `c${convTo.size + 1}`
+    convTo.set(id, o.to)
+    sent.push({body: o.body, to: o.to})
+    return {conversation: {id}}
+  },
+  reply: async (o: {conversationId: string; body: string}) => {
+    sent.push({body: o.body, to: convTo.get(o.conversationId) ?? '?'})
+    return {conversation: {id: o.conversationId}}
+  },
+})
+
+// who is asking: change between requests to act as another user
+let user = {mod: true, name: 'username'}
+
 before(async () => {
   reddit.getCurrentUser = async () =>
     ({
-      getModPermissionsForSubreddit: async () => ['all'],
-      username: 'username',
+      getModPermissionsForSubreddit: async () => (user.mod ? ['all'] : []),
+      username: user.name,
     }) as never
   server = createServer(async (req, rsp) => {
     await runWithContext(
@@ -179,11 +209,93 @@ test('search: one page of matches, total and exact title', async () => {
   assert.deepEqual([none.total, none.certs.length], [0, 0])
 })
 
-test('new: counts only certificates after the follow seq', async () => {
-  const n = await get<NewRsp>(
-    `${Endpoint.New}?k=${encodeURIComponent('drishyam:0,drishyam:999,arikomban:0')}`,
+const watch = async (body: object = {}): Promise<WatchActRsp> =>
+  (await post(Endpoint.Watch, body)).json() as Promise<WatchActRsp>
+const words = (r: WatchActRsp): string[] =>
+  'keywords' in r ? r.keywords.map(k => k.word) : []
+
+test('watch: follow sends a welcome; private keywords only for followers and mods', async () => {
+  user = {mod: false, name: 'ann'}
+  const r = (await watch({act: 'follow', word: 'Drishyam'})) as WatchRsp
+  assert.deepEqual(words(r), ['drishyam'])
+  assert.equal(r.keywords[0]?.owner, 'ann')
+  assert.equal(r.keywords[0]?.public, false) // only mods make it public
+  assert.equal(r.keywords[0]?.fresh, 0) // counts from the follow
+  assert.match(
+    sent.at(-1)?.body ?? '',
+    /Keyword added: DRISHYAM[\s\S]*Alerts \*\*ON\*\*/,
   )
-  assert.deepEqual(n.counts, [1, 0, 0]) // imported rows (seq 0) are never new
+  user = {mod: false, name: 'bob'}
+  assert.deepEqual(words(await watch()), []) // not public yet
+  user = {mod: true, name: 'username'}
+  await watch({act: 'public', word: 'drishyam'})
+  user = {mod: false, name: 'bob'}
+  assert.deepEqual(words(await watch()), ['drishyam'])
+  assert.deepEqual(await watch({act: 'public', word: 'drishyam'}), {
+    error: 'Mods only',
+    status: 400,
+  })
+})
+
+test('watch: rules', async () => {
+  user = {mod: false, name: 'bob'}
+  const err = async (word: string): Promise<string> =>
+    ((await watch({act: 'follow', word})) as {error: string}).error
+  assert.equal(await err('the'), 'Too common, try another')
+  assert.equal(await err('x'), '2–20 letters or digits')
+  for (const w of ['toxic', 'kantara', 'coolie'])
+    assert.deepEqual(
+      words(await watch({act: 'follow', word: w})).includes(w),
+      true,
+    )
+  assert.equal(await err('empuraan'), 'Limit: 3 keywords')
+  assert.equal(await err('toxic'), 'Already following TOXIC')
+  user = {mod: false, name: ''}
+  assert.equal(await err('ramayana'), 'Log in first')
+})
+
+test('watch: new certificates send one alert per follower', async () => {
+  user = {mod: false, name: 'bob'}
+  await watch({act: 'follow', word: 'drishyam'}) // bob already has 3
+  user = {mod: false, name: 'cat'}
+  await watch({act: 'follow', word: 'drishyam'})
+  await watch({act: 'follow', word: 'kerala'})
+  const before = sent.length
+  reddit.getPostById = async () =>
+    ({
+      body: `${sourcePost}
+| DRISHYAM KERALA | Malayalam | U | 2h 10m | TVM/1/99/2026 | 2026-11-07 D1 |
+| DRISHYAM 4 | Tamil | UA 13+ | 2h 1m | CHE/1/99/2026 | 2026-11-07 D1 |`,
+    }) as never
+  await post(Endpoint.OnSchedulerSync, {})
+  reddit.getPostById = async () => ({body: sourcePost}) as never
+  const alerts = sent.slice(before)
+  assert.deepEqual(alerts.map(a => a.to).sort(), ['ann', 'cat'])
+  const cat = alerts.find(a => a.to === 'cat')?.body ?? ''
+  assert.match(cat, /^\*\*DRISHYAM, KERALA: 2 new certificates\*\*/)
+  assert.equal(cat.split('DRISHYAM KERALA ·').length, 2) // listed once
+  assert.doesNotMatch(cat, /Unfollow/)
+  user = {mod: false, name: 'ann'}
+  const r = (await watch()) as WatchRsp
+  assert.equal(r.keywords.find(k => k.word === 'drishyam')?.fresh, 2)
+})
+
+test('watch: unfollow passes ownership on; last one out deletes', async () => {
+  user = {mod: false, name: 'ann'}
+  await watch({act: 'unfollow', word: 'drishyam'})
+  assert.match(
+    sent.at(-1)?.body ?? '',
+    /Keyword removed: DRISHYAM[\s\S]*Alerts \*\*OFF\*\*/,
+  )
+  user = {mod: true, name: 'username'}
+  const r = (await watch()) as WatchRsp
+  assert.equal(r.keywords.find(k => k.word === 'drishyam')?.owner, 'cat')
+  user = {mod: false, name: 'cat'}
+  await watch({act: 'unfollow', word: 'kerala'})
+  user = {mod: true, name: 'username'}
+  assert.equal(words(await watch()).includes('kerala'), false)
+  // one conversation per user: every message to cat is in the same thread
+  assert.equal([...convTo.values()].filter(u => u === 'cat').length, 1)
 })
 
 test('source post: errors show in settings', async () => {
