@@ -2,7 +2,7 @@
   "private": true,
   "name": "cbfc-tracker",
   "version": "1.0.0",
-  "description": "Reddit app to search and follow Indian CBFC film certificates (unofficial)",
+  "description": "CBFC Certificates: Search & Watchlist for Reddit communities (unofficial)",
   "keywords": [
     "reddit",
     "devvit",
