@@ -39,7 +39,7 @@ Built for [r/kerala_boxoffice](https://www.reddit.com/r/kerala_boxoffice/). It w
 | ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
 | **Title**               | Title of the post created by "Add CBFC Tracker"                                                                                                            | 🎬 CBFC Certificates: Search & Watchlist (Unofficial) |
 | **Archive time (IST)**  | When to post the new certificates since the last archive. Each certificate is posted once. Initial data counts as already archived. Choose Off to stop it. | 00:00                                                 |
-| **Source post**         | Link of the live tracker post (read only, never edited) that `cbfc.js` keeps updating.                                                                     | empty                                                 |
+| **Source post**         | Link of the live tracker post that `cbfc.js` keeps updating. Read-only, never edited.                                                                      | empty                                                 |
 | **Initial data (JSON)** | One-time import of older certificates. Certificates are matched by Ref (certificate number), so pasting the same data again never creates duplicates.      | empty                                                 |
 
 ### Source post format

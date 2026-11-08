@@ -39,7 +39,7 @@
       "trackerPost": {
         "type": "string",
         "label": "Source post",
-        "helpText": "Link of the live tracker post (read only, never edited)",
+        "helpText": "Link of the live tracker post (read-only, never edited)",
         "defaultValue": ""
       },
       "initialData": {
