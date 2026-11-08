@@ -93,9 +93,19 @@ Object.assign(settings, {
 })
 // daily archive posts, recorded
 const posts: {text: string; title: string}[] = []
+// posts are approved and get the MOD badge
+const modded: string[] = []
 reddit.submitPost = (async (o: {text: string; title: string}) => {
   posts.push(o)
-  return {id: 't3_arch'}
+  return {
+    approve: async () => {
+      modded.push('approve')
+    },
+    distinguish: async () => {
+      modded.push('distinguish')
+    },
+    id: 't3_arch',
+  }
 }) as never
 reddit.getPostById = async () => ({body: sourcePost}) as never
 
@@ -574,6 +584,7 @@ test('archive: one post a day with every new item, then marked posted', async ()
     /\| A TRAILER \| Tamil \| U \| 2m 10s \| TRL\/1\/1\/2026 \| 2026-11-06 \|/,
   )
   assert.doesNotMatch(text, /D2/)
+  assert.deepEqual(modded, ['approve', 'distinguish']) // no mod queue, MOD badge
   // the initial data import counts as posted
   assert.doesNotMatch(text, /ARIKOMBAN/)
   archiveOn = true

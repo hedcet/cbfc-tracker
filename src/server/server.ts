@@ -10,7 +10,7 @@ import {
   type WatchActRsp,
   type WatchReq,
 } from '../shared/api.ts'
-import {postArchive} from './archive.ts'
+import {asMod, postArchive} from './archive.ts'
 import {parseTable, postId} from './certs.ts'
 import {
   addPostRows,
@@ -87,6 +87,7 @@ async function routeMenuNewPost(): Promise<UiResponse> {
     }
   }
   const post = await reddit.submitCustomPost({title: await postTitle()})
+  await asMod(post)
   await redis.set(TOOL_POST, post.id)
   return {
     navigateTo: post.url,
