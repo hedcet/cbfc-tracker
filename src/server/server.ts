@@ -132,7 +132,7 @@ async function validateSourcePost(body: unknown): Promise<ValidationRsp> {
   const value = String((body as {value?: unknown}).value ?? '').trim()
   if (!value) return {success: true} // optional: without it, the tool is search only
   const id = postId(value)
-  if (!id) return {success: false, error: 'Use a post link or ID'}
+  if (!id) return {success: false, error: 'Use the post ID, e.g. 1abc2de'}
   let text = ''
   try {
     text = (await reddit.getPostById(id as `t3_${string}`)).body ?? ''

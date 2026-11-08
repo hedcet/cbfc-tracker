@@ -137,7 +137,6 @@ export function parseJson(text: string): Cert[] {
 /** Post ID from a link ("…/comments/1abc2de/…") or an ID ("1abc2de", "t3_1abc2de"). */
 export function postId(text: string): string {
   const s = text.trim()
-  const link = /\/comments\/([a-z0-9]+)/i.exec(s)
-  const id = link?.[1] ?? /^(?:t3_)?([a-z0-9]+)$/i.exec(s)?.[1]
+  const id = /^(?:t3_)?([a-z0-9]+)$/i.exec(s)?.[1]
   return id ? `t3_${id.toLowerCase()}` : ''
 }

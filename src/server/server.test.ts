@@ -157,7 +157,7 @@ test('source post: errors show in settings', async () => {
   assert.deepEqual(await check(''), {success: true})
   assert.deepEqual(await check('not a post'), {
     success: false,
-    error: 'Use a post link or ID',
+    error: 'Use the post ID, e.g. 1abc2de',
   })
   assert.deepEqual(await check('t3_src'), {success: true})
   const real = reddit.getPostById

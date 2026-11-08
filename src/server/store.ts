@@ -81,7 +81,7 @@ export async function syncSource(): Promise<SyncInfo> {
   let error = ''
   if (!id)
     error = link.trim()
-      ? 'Source post link is not valid'
+      ? 'Source post ID is not valid'
       : 'Source post not set in settings'
   else {
     try {

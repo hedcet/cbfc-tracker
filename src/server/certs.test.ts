@@ -91,12 +91,12 @@ test('valid: films only, no future dates', () => {
   assert.ok(!isValid({...c, date: 'soon'}, '2026-11-08'))
 })
 
-test('post id from link or id', () => {
+test('post id only', () => {
   assert.equal(
     postId(
       'https://www.reddit.com/r/kerala_boxoffice/comments/1abc2de/cbfc_tracker/',
     ),
-    't3_1abc2de',
+    '',
   )
   assert.equal(postId('1abc2de'), 't3_1abc2de')
   assert.equal(postId('t3_1abc2de'), 't3_1abc2de')
