@@ -14,7 +14,7 @@ Built for [r/kerala_boxoffice](https://www.reddit.com/r/kerala_boxoffice/). It w
 
 | Search (opens first)                                                                   | Certificate                                                                                      | Watchlist                                                                                    |
 | -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------- |
-| ![Search](https://raw.githubusercontent.com/hedcet/cbfc/master/reddit/docs/search.png) | ![Certificate](https://raw.githubusercontent.com/hedcet/cbfc/master/reddit/docs/certificate.png) | ![Watchlist](https://raw.githubusercontent.com/hedcet/cbfc/master/reddit/docs/watchlist.png) |
+| ![Search](https://raw.githubusercontent.com/hedcet/cbfc-tracker/main/docs/search.png) | ![Certificate](https://raw.githubusercontent.com/hedcet/cbfc-tracker/main/docs/certificate.png) | ![Watchlist](https://raw.githubusercontent.com/hedcet/cbfc-tracker/main/docs/watchlist.png) |
 
 **Search** works for everyone, from the first letter typed. It shows the total, like "12,345 films", with an empty box, and "N matches · Watch X" while you type. Tap a row to open its certificate.
 
@@ -74,7 +74,8 @@ A JSON list in the same shape the app reads from the source post:
 Requirements: Node 26.13.0 (pinned with Volta in `package.json`) and a Reddit account with Developer Platform access.
 
 ```bash
-cd reddit
+git clone https://github.com/hedcet/cbfc-tracker.git
+cd cbfc-tracker
 npm install
 npx devvit login
 ```
