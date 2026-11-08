@@ -87,6 +87,7 @@ async function allCerts(): Promise<CertRow[]> {
 // names: one-word titles, used as placeholder examples (also valid keywords)
 type Cache = {ver: string; rows: CertRow[]; titles: string[]; names: string[]}
 let cache: Cache | null = null
+
 async function sorted(): Promise<Cache> {
   const ver = (await redis.get(VER)) ?? '0'
   if (cache?.ver !== ver) {
@@ -135,15 +136,6 @@ export async function newCounts(list: string[]): Promise<NewRsp> {
   }
 }
 
-/** Imports the initial data from settings once; the same text is not imported again. */
-export async function importSetting(): Promise<void> {
-  try {
-    await importText((await settings.get<string>('initialData')) ?? '')
-  } catch (err) {
-    console.error(err)
-  }
-}
-
 /** Imports initial data JSON once (same text is skipped); throws on bad JSON. */
 export async function importText(raw: string): Promise<void> {
   const text = raw.trim()
@@ -156,16 +148,18 @@ export async function importText(raw: string): Promise<void> {
   await redis.set(IMPORT, sum)
 }
 
+/** Imports the initial data from settings once; the same text is not imported again. */
+export async function importSetting(): Promise<void> {
+  try {
+    await importText((await settings.get<string>('initialData')) ?? '')
+  } catch (err) {
+    console.error(err)
+  }
+}
+
 /** Stores the certificates of a source post table (newest first in the post). */
 export const addPostRows = (rows: Cert[]): Promise<number> =>
   addCerts(rows.slice().reverse(), false) // oldest first: newest gets the highest seq
-
-/** Reads the source post when nobody has in the last 15 minutes (catches missed edits). */
-export async function syncIfStale(): Promise<void> {
-  if (await redis.get(FRESH)) return
-  await redis.set(FRESH, '1', {expiration: new Date(Date.now() + FRESH_MS)})
-  await syncSource()
-}
 
 /** Reads the source post set in settings and stores new certificates. */
 export async function syncSource(): Promise<{
@@ -196,4 +190,11 @@ export async function syncSource(): Promise<{
     `source post: ${added} added, ${total} total${error ? `, ${error}` : ''}`,
   )
   return {added, error, total}
+}
+
+/** Reads the source post when nobody has in the last 15 minutes (catches missed edits). */
+export async function syncIfStale(): Promise<void> {
+  if (await redis.get(FRESH)) return
+  await redis.set(FRESH, '1', {expiration: new Date(Date.now() + FRESH_MS)})
+  await syncSource()
 }

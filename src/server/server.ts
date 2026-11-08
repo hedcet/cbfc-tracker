@@ -33,78 +33,24 @@ type AnyRsp =
   | ErrorRsp
   | EmptyRsp
 
-export async function onReq(
-  reqMsg: IncomingMessage,
-  rspMsg: ServerResponse,
-): Promise<void> {
-  try {
-    await route(reqMsg, rspMsg)
-  } catch (err) {
-    const msg = `server error; ${err instanceof Error ? err.stack : err}`
-    console.error(msg)
-    writeJson<ErrorRsp>(500, {error: msg, status: 500}, rspMsg)
-  }
+async function readJson(req: IncomingMessage): Promise<unknown> {
+  const chunks: Buffer[] = []
+  for await (const chunk of req) chunks.push(chunk as Buffer)
+  const text = Buffer.concat(chunks).toString('utf8')
+  return text ? JSON.parse(text) : {}
 }
 
-async function route(
-  reqMsg: IncomingMessage,
-  rspMsg: ServerResponse,
-): Promise<void> {
-  const url = new URL(reqMsg.url ?? '/', 'http://localhost')
-  const endpoint = url.pathname.slice(1) as Endpoint
-  const query = url.searchParams
-  const method = EndpointMethod[endpoint]
-
-  let rsp: AnyRsp
-  if (method !== reqMsg.method) {
-    rsp = {error: 'not found', status: 404}
-  } else {
-    switch (endpoint) {
-      case Endpoint.Me:
-        rsp = await routeMe()
-        break
-      case Endpoint.Search:
-        // opening the post (first page, no query) also catches missed source edits
-        if (!query.get('q') && !Number(query.get('page'))) await syncIfStale()
-        rsp = await searchCerts(
-          query.get('q') ?? '',
-          Number(query.get('page')) || 0,
-        )
-        break
-      case Endpoint.New:
-        rsp = await newCounts(
-          (query.get('k') ?? '').split(',').filter(Boolean).slice(0, 20),
-        )
-        break
-      case Endpoint.OnMenuNewPost:
-        rsp = await routeMenuNewPost()
-        break
-      case Endpoint.OnPostUpdate:
-        rsp = await routePostUpdate(await readJson(reqMsg))
-        break
-      case Endpoint.OnSchedulerSync:
-        await importSetting()
-        await syncSource()
-        rsp = {}
-        break
-      case Endpoint.ValidateSourcePost:
-        rsp = await validateSourcePost(await readJson(reqMsg))
-        break
-      case Endpoint.ValidateInitialData:
-        rsp = await validateInitialData(await readJson(reqMsg))
-        break
-      default:
-        endpoint satisfies never
-        rsp = {error: 'not found', status: 404}
-        break
-    }
-  }
-
-  writeJson<PartialJsonValue>(
-    'status' in rsp ? rsp.status : 200,
-    rsp as PartialJsonValue,
-    rspMsg,
-  )
+function writeJson<T extends PartialJsonValue>(
+  status: number,
+  json: Readonly<T>,
+  rsp: ServerResponse,
+): void {
+  const body = JSON.stringify(json)
+  rsp.writeHead(status, {
+    'Content-Length': Buffer.byteLength(body),
+    'Content-Type': 'application/json',
+  })
+  rsp.end(body)
 }
 
 async function routeMe(): Promise<MeRsp> {
@@ -184,22 +130,76 @@ async function validateInitialData(body: unknown): Promise<ValidationRsp> {
   }
 }
 
-async function readJson(req: IncomingMessage): Promise<unknown> {
-  const chunks: Buffer[] = []
-  for await (const chunk of req) chunks.push(chunk as Buffer)
-  const text = Buffer.concat(chunks).toString('utf8')
-  return text ? JSON.parse(text) : {}
+async function route(
+  reqMsg: IncomingMessage,
+  rspMsg: ServerResponse,
+): Promise<void> {
+  const url = new URL(reqMsg.url ?? '/', 'http://localhost')
+  const endpoint = url.pathname.slice(1) as Endpoint
+  const query = url.searchParams
+  const method = EndpointMethod[endpoint]
+
+  let rsp: AnyRsp
+  if (method !== reqMsg.method) {
+    rsp = {error: 'not found', status: 404}
+  } else {
+    switch (endpoint) {
+      case Endpoint.Me:
+        rsp = await routeMe()
+        break
+      case Endpoint.Search:
+        // opening the post (first page, no query) also catches missed source edits
+        if (!query.get('q') && !Number(query.get('page'))) await syncIfStale()
+        rsp = await searchCerts(
+          query.get('q') ?? '',
+          Number(query.get('page')) || 0,
+        )
+        break
+      case Endpoint.New:
+        rsp = await newCounts(
+          (query.get('k') ?? '').split(',').filter(Boolean).slice(0, 20),
+        )
+        break
+      case Endpoint.OnMenuNewPost:
+        rsp = await routeMenuNewPost()
+        break
+      case Endpoint.OnPostUpdate:
+        rsp = await routePostUpdate(await readJson(reqMsg))
+        break
+      case Endpoint.OnSchedulerSync:
+        await importSetting()
+        await syncSource()
+        rsp = {}
+        break
+      case Endpoint.ValidateSourcePost:
+        rsp = await validateSourcePost(await readJson(reqMsg))
+        break
+      case Endpoint.ValidateInitialData:
+        rsp = await validateInitialData(await readJson(reqMsg))
+        break
+      default:
+        endpoint satisfies never
+        rsp = {error: 'not found', status: 404}
+        break
+    }
+  }
+
+  writeJson<PartialJsonValue>(
+    'status' in rsp ? rsp.status : 200,
+    rsp as PartialJsonValue,
+    rspMsg,
+  )
 }
 
-function writeJson<T extends PartialJsonValue>(
-  status: number,
-  json: Readonly<T>,
-  rsp: ServerResponse,
-): void {
-  const body = JSON.stringify(json)
-  rsp.writeHead(status, {
-    'Content-Length': Buffer.byteLength(body),
-    'Content-Type': 'application/json',
-  })
-  rsp.end(body)
+export async function onReq(
+  reqMsg: IncomingMessage,
+  rspMsg: ServerResponse,
+): Promise<void> {
+  try {
+    await route(reqMsg, rspMsg)
+  } catch (err) {
+    const msg = `server error; ${err instanceof Error ? err.stack : err}`
+    console.error(msg)
+    writeJson<ErrorRsp>(500, {error: msg, status: 500}, rspMsg)
+  }
 }

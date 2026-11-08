@@ -154,9 +154,6 @@ function pager(
   return page[key] * PAGE
 }
 
-// Reddit's own toast
-const toast = (msg: string): void => showToast(msg)
-
 function placeholders(): void {
   // a too-common word is not a valid keyword: fall back for the watchlist
   const watch = hints[1] && !STOP.has(hints[1].toLowerCase()) ? hints[1] : ''
@@ -281,11 +278,11 @@ function addKeyword(raw: string): boolean {
   let item = keywords.find(x => x.keyword === k)
   if (item) {
     item.subs[viewer] = clock
-    toast(`Following ${up(k)}`)
+    showToast(`Following ${up(k)}`)
   } else {
     item = kw(k, viewer, {[viewer]: clock}, isMod)
     keywords.push(item)
-    toast(`Added ${up(k)}`)
+    showToast(`Added ${up(k)}`)
   }
   wError = ''
   jumpTo(item)
@@ -302,11 +299,11 @@ function follow(k: Keyword): void {
     return
   }
   if (atLimit()) {
-    toast(`Limit: ${MAX_FOLLOW} keywords`)
+    showToast(`Limit: ${MAX_FOLLOW} keywords`)
     return
   }
   k.subs[viewer] = clock
-  toast(`Following ${up(k.keyword)}`)
+  showToast(`Following ${up(k.keyword)}`)
   jumpTo(k)
   renderWatch()
   renderSearch()
@@ -323,18 +320,26 @@ function leave(k: Keyword): void {
   if (!first) keywords.splice(index, 1)
   else if (wasOwner) k.owner = first[0]
   // "Removed" only when it is really gone; otherwise it stays with the others
-  toast(`${first ? 'Unfollowed' : 'Removed'} ${up(k.keyword)}`)
+  showToast(`${first ? 'Unfollowed' : 'Removed'} ${up(k.keyword)}`)
   renderWatch()
   renderSearch()
 }
 
 function approve(k: Keyword): void {
   k.approved = !k.approved
-  toast(`${up(k.keyword)} ${k.approved ? 'approved' : 'unapproved'}`)
+  showToast(`${up(k.keyword)} ${k.approved ? 'approved' : 'unapproved'}`)
   renderWatch()
 }
 
 /* ---------------- search + certificate sheet ---------------- */
+// "12,377 films"
+function totalLine(n: number): string {
+  if (certsState === 'loading') return 'Loading…'
+  if (certsState === 'error')
+    return '<span class="err-text">Couldn’t load films</span> · <a role="button" tabindex="0" data-act="retry">Retry</a>'
+  return n ? `${n.toLocaleString('en-IN')} films` : 'No films yet'
+}
+
 function renderSearch(): void {
   const input = $<HTMLInputElement>('sInput')
   const raw = input.value
@@ -362,14 +367,6 @@ function renderSearch(): void {
     (!q
       ? ''
       : `<div class="empty">No matches${word ? `<br><button class="btn sm" type="button" data-act="watch">Watch ${esc(up(word))}</button>` : ''}</div>`)
-}
-
-// "12,377 films"
-function totalLine(n: number): string {
-  if (certsState === 'loading') return 'Loading…'
-  if (certsState === 'error')
-    return '<span class="err-text">Couldn’t load films</span> · <a role="button" tabindex="0" data-act="retry">Retry</a>'
-  return n ? `${n.toLocaleString('en-IN')} films` : 'No films yet'
 }
 
 let sheetOpen = false

@@ -4,7 +4,7 @@
     "customConditions": ["server"],
     "erasableSyntaxOnly": true,
     "isolatedModules": true,
-    "lib": ["DOM", "ES2023", "ESNext.Disposable"],
+    "lib": ["DOM", "ES2023"],
     "moduleResolution": "Bundler",
     "noEmit": true,
     "noUncheckedIndexedAccess": true,
