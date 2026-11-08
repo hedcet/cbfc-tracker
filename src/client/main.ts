@@ -249,7 +249,7 @@ function renderWatch(): void {
         const chip = n
           ? `<span class="chip" role="button" tabindex="0" title="Show matches" data-act="search-for" data-id="${k.id}">${n} new ›</span>`
           : ''
-        const line2 = `${followerCount(k)} follower${followerCount(k) === 1 ? '' : 's'}${owner ? ' · yours' : isMod ? ` · added by ${k.owner}` : ''}`
+        const line2 = `${followerCount(k)} follower${followerCount(k) === 1 ? '' : 's'}${owner ? ' · yours' : isMod ? ` · ${k.owner}` : ''}`
         const label = on ? 'Unfollow' : 'Follow'
         const acts = [
           `<button class="icon bell ${on ? 'on' : ''}" type="button" ${signed ? '' : 'disabled'} title="${signed ? label : 'Log in to follow'}" aria-label="${label}" aria-pressed="${on}" data-act="follow" data-id="${k.id}">${on ? ICON.bellOn : ICON.bell}</button>`,
