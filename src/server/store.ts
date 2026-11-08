@@ -22,13 +22,13 @@ import {
 //   certs:seq  int   order in which certificates were first seen
 //   certs:ver  int   bumped on every add; the search cache reloads when it changes
 //   import     str   hash of the initial data last imported
-//   fresh      str   set while the source post was read in the last 5 min
+//   fresh      str   set while the source post was read in the last 15 min
 const CERTS = 'certs'
 const SEQ = 'certs:seq'
 const VER = 'certs:ver'
 const IMPORT = 'import'
 const FRESH = 'fresh'
-const FRESH_MS = 5 * 60_000
+const FRESH_MS = 15 * 60_000
 const BATCH = 500
 
 type Stored = [string, string, string, number, string, number, 0 | 1]
@@ -160,7 +160,7 @@ export async function importText(raw: string): Promise<void> {
 export const addPostRows = (rows: Cert[]): Promise<number> =>
   addCerts(rows.slice().reverse(), false) // oldest first: newest gets the highest seq
 
-/** Reads the source post when nobody has in the last 5 minutes (catches missed edits). */
+/** Reads the source post when nobody has in the last 15 minutes (catches missed edits). */
 export async function syncIfStale(): Promise<void> {
   if (await redis.get(FRESH)) return
   await redis.set(FRESH, '1', {expiration: new Date(Date.now() + FRESH_MS)})

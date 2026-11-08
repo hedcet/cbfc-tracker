@@ -15,11 +15,11 @@ Reddit (Devvit) app for following Indian CBFC film certificates. Built for [r/ke
 2. Set the app settings (below).
 3. Mod menu → **Add CBFC Tracker** creates the post.
 
-| Setting             | Purpose                                                                                                                                                                                   |
-| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Title               | Title of the tracker post                                                                                                                                                                 |
-| Source post ID      | Post (e.g. `1abc2de`) with a `\| Title \| Language \| Category \| Length \| Ref \| When \|` table; read on save, on edit, when the post is opened (max every 5 min) and hourly. Optional. |
-| Initial data (JSON) | One-time import, imported on save; clear after.                                                                                                                                           |
+| Setting             | Purpose                                                                                                                                                                                    |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Title               | Title of the tracker post                                                                                                                                                                  |
+| Source post ID      | Post (e.g. `1abc2de`) with a `\| Title \| Language \| Category \| Length \| Ref \| When \|` table; read on save, on edit, when the post is opened (max every 15 min) and hourly. Optional. |
+| Initial data (JSON) | One-time import, imported on save; clear after.                                                                                                                                            |
 
 Initial data is a JSON list:
 
