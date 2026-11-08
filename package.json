@@ -2,6 +2,23 @@
   "private": true,
   "name": "cbfc-tracker",
   "version": "1.0.0",
+  "description": "Reddit app to search and follow Indian CBFC film certificates (unofficial)",
+  "keywords": [
+    "reddit",
+    "devvit",
+    "cbfc",
+    "movies",
+    "india"
+  ],
+  "homepage": "https://developers.reddit.com/apps/cbfc-tracker",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hedcet/cbfc-tracker.git"
+  },
+  "bugs": {
+    "url": "https://github.com/hedcet/cbfc-tracker/issues"
+  },
+  "author": "HedCET",
   "license": "BSD-3-Clause",
   "type": "module",
   "scripts": {
