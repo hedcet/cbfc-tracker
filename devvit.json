@@ -31,7 +31,7 @@
       "trackerPost": {
         "type": "string",
         "label": "Source post ID",
-        "helpText": "ID of the live tracker post, e.g. 1abc2de from …/comments/1abc2de/… (read-only, never edited)",
+        "helpText": "Optional: post to read new certificates from",
         "placeholder": "1abc2de",
         "defaultValue": "",
         "validationEndpoint": "/internal/settings/source-post"
