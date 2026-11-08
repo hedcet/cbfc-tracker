@@ -113,7 +113,7 @@ export async function searchCerts(q: string, page: number): Promise<SearchRsp> {
   const {rows, titles, names} = await sorted()
   const k = norm(q)
   const pick = (): string =>
-    names[Math.floor(Math.random() * names.length)] ?? 'DRISHYAM'
+    names[Math.floor(Math.random() * names.length)] ?? '' // none: plain text
   const hits = k ? rows.filter((_, i) => titles[i]?.includes(k)) : rows
   const start = Math.max(0, page) * PAGE
   return {

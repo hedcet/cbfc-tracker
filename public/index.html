@@ -8,7 +8,7 @@
     <style>
     /* tokens: light + dark (follows the device theme) */
     :root {
-      --radius: 8px;
+      --pill: 999px; /* Reddit style: pill buttons, inputs and chips */
       --card: #fff;
       --ink: #1c1c1c;
       --mute: #5c6c74;
@@ -74,7 +74,7 @@
     }
     .tabs button {
       flex: 1;
-      padding: 10px;
+      padding: 12px 10px;
       border: 0;
       border-bottom: 3px solid transparent;
       background: none;
@@ -98,7 +98,7 @@
       flex: 1;
       min-height: 0;
       flex-direction: column;
-      padding: 12px;
+      padding: 16px 12px 10px;
     }
     .pane.on {
       display: flex;
@@ -107,7 +107,7 @@
     .bar {
       display: flex;
       gap: 8px;
-      margin-bottom: 8px;
+      margin-bottom: 10px;
     }
     .inwrap {
       position: relative;
@@ -119,9 +119,9 @@
       flex: 1;
       min-width: 0;
       height: 34px;
-      padding: 0 34px 0 12px;
+      padding: 0 34px 0 14px;
       border: 1px solid var(--line);
-      border-radius: var(--radius);
+      border-radius: var(--pill);
       background: var(--card);
       outline: none;
       text-overflow: ellipsis;
@@ -133,7 +133,7 @@
       height: 34px;
       padding: 0 16px;
       border: 1px solid var(--brand);
-      border-radius: var(--radius);
+      border-radius: var(--pill);
       background: var(--card);
       color: var(--brand);
       font-weight: 600;
@@ -144,10 +144,17 @@
       background: var(--brand);
       color: #fff;
     }
-    .btn.sm {
-      height: 28px;
-      padding: 0 12px;
+    .btn.xs {
+      height: 22px;
+      padding: 0 10px;
       font-size: 12px;
+      vertical-align: middle;
+    }
+    .xs svg {
+      width: 12px;
+      height: 12px;
+      margin-right: 3px;
+      vertical-align: -2px;
     }
     .btn:disabled {
       opacity: 0.45;
@@ -155,8 +162,9 @@
     }
 
     .count {
-      min-height: 16px;
-      margin: -2px 0 4px 2px;
+      min-height: 22px;
+      line-height: 22px;
+      margin: 0 0 6px 4px;
       font-size: 12px;
       color: var(--mute);
       white-space: nowrap;
@@ -169,6 +177,9 @@
     .err-text {
       color: var(--bad);
     }
+    .count .btn {
+      margin-left: 6px;
+    }
     .count a {
       color: var(--brand);
       font-weight: 600;
@@ -176,15 +187,20 @@
       cursor: pointer;
     }
 
+    /* rows share the spare height (up to 64px each): no empty gap above the pager */
     .list {
       flex: 1;
+      display: flex;
+      flex-direction: column;
       overflow: hidden;
     }
     .row {
       display: flex;
       align-items: center;
       gap: 8px;
-      height: 50px;
+      flex: 1 1 0;
+      min-height: 50px;
+      max-height: 64px;
       padding: 6px 4px;
       border-bottom: 1px solid var(--line);
     }
@@ -222,7 +238,7 @@
     .chip {
       margin-left: 8px;
       padding: 1px 8px;
-      border-radius: var(--radius);
+      border-radius: var(--pill);
       background: var(--ok-soft);
       color: var(--ok);
       font-size: 12.5px;
@@ -240,23 +256,20 @@
     .acts {
       display: inline-flex;
       flex: none;
-      border: 1px solid var(--line);
-      border-radius: var(--radius);
-      overflow: hidden;
+      gap: 6px;
     }
+    /* every icon button: the same circle */
     .icon {
       display: inline-grid;
       place-items: center;
-      width: 32px;
-      height: 28px;
+      width: 30px;
+      height: 30px;
       padding: 0;
-      border: 0;
+      border: 1px solid var(--line);
+      border-radius: 50%;
       background: transparent;
       color: var(--mute);
       cursor: pointer;
-    }
-    .icon + .icon {
-      border-left: 1px solid var(--line);
     }
     .icon svg {
       width: 16px;
@@ -271,19 +284,17 @@
       cursor: not-allowed;
     }
     .icon.bell.on {
+      border-color: transparent;
       background: var(--brand-soft);
       color: var(--brand);
     }
     .icon.pub.on {
+      border-color: transparent;
       background: var(--ok-soft);
       color: var(--ok);
     }
-    .icon.round {
-      width: 30px;
-      height: 30px;
-      border-radius: var(--radius);
-    }
     .clear {
+      border-color: transparent;
       position: absolute;
       right: 3px;
       top: 2px;
@@ -427,7 +438,7 @@
               aria-label="Search films"
             >
             <button
-              class="icon round clear"
+              class="icon clear"
               id="sClear"
               type="button"
               aria-label="Clear search"
@@ -451,7 +462,7 @@
           <div class="sheet-head">
             <h3 id="sheetTitle">CBFC certificate</h3>
             <button
-              class="icon round"
+              class="icon"
               id="sheetClose"
               type="button"
               aria-label="Close"

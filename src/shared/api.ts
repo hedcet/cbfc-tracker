@@ -13,7 +13,7 @@ export const PAGE = 6
 /**
  * One page of search results, newest first.
  * total: all matches;
- * hints: two random one-word titles for the search and watchlist placeholders.
+ * hints: two random one-word titles for the placeholders ('' when there are none).
  */
 export type SearchRsp = {
   total: number

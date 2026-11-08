@@ -82,6 +82,10 @@ function addError(k: string): string {
   if (atLimit()) return `Limit: ${MAX_FOLLOW} keywords`
   return ''
 }
+// one style wherever Search offers to watch: a small pill "＋ Watch DRISHYAM"
+const watchBtn = (word: string): string =>
+  `<button class="btn xs" type="button" data-act="watch">${ICON.plus}Watch ${esc(up(word))}</button>`
+
 function watchable(raw: string): string {
   const k = norm(raw)
   if (!loggedIn() || keywordError(k)) return ''
@@ -100,7 +104,7 @@ function pager(
   const el = $(id)
   el.style.visibility = pages > 1 ? 'visible' : 'hidden'
   // ( ‹ )  2 / 9  ( › )
-  el.innerHTML = `<button class="icon round" type="button" title="Previous page" aria-label="Previous page" ${page[key] ? '' : 'disabled'}>${ICON.prev}</button><span aria-live="polite">${page[key] + 1} / ${pages}</span><button class="icon round" type="button" title="Next page" aria-label="Next page" ${page[key] < pages - 1 ? '' : 'disabled'}>${ICON.next}</button>`
+  el.innerHTML = `<button class="icon" type="button" title="Previous page" aria-label="Previous page" ${page[key] ? '' : 'disabled'}>${ICON.prev}</button><span aria-live="polite">${page[key] + 1} / ${pages}</span><button class="icon" type="button" title="Next page" aria-label="Next page" ${page[key] < pages - 1 ? '' : 'disabled'}>${ICON.next}</button>`
   ;(el.firstElementChild as HTMLButtonElement).onclick = () => {
     page[key]--
     rerender()
@@ -112,15 +116,16 @@ function pager(
   return page[key] * PAGE
 }
 
+// plain text until the server sends a random title: "Search films, like KANTARA"
 function placeholders(): void {
-  // a too-common word is not a valid keyword: fall back for the watchlist
+  const like = (t: string | undefined): string => (t ? `, like ${t}` : '')
+  // a too-common word is not a valid keyword: no example for the watchlist
   const watch =
     hints[1] && !keywordError(hints[1].toLowerCase()) ? hints[1] : ''
   $<HTMLInputElement>('wInput').placeholder = loggedIn()
-    ? `Film name, like ${watch || 'DRISHYAM'}`
-    : 'Log in to add'
-  $<HTMLInputElement>('sInput').placeholder =
-    `Search films, like ${hints[0] || 'DRISHYAM'}`
+    ? `Follow keywords${like(watch)}`
+    : 'Log in to follow'
+  $<HTMLInputElement>('sInput').placeholder = `Search films${like(hints[0])}`
 }
 
 function showTab(t: string): void {
@@ -287,7 +292,7 @@ function renderSearch(): void {
       : !q || certsState !== 'ready'
         ? totalLine(total)
         : total
-          ? `${total} match${total === 1 ? '' : 'es'}${word ? ` · <a role="button" tabindex="0" data-act="watch">Watch ${esc(up(word))}</a>` : ''}`
+          ? `${total} match${total === 1 ? '' : 'es'}${word ? watchBtn(word) : ''}`
           : ''
 
   pager('sPager', 's', total, () => void loadSearch())
@@ -300,7 +305,7 @@ function renderSearch(): void {
       .join('') ||
     (!q
       ? ''
-      : `<div class="empty">No matches${word ? `<br><button class="btn sm" type="button" data-act="watch">Watch ${esc(up(word))}</button>` : ''}</div>`)
+      : `<div class="empty">No matches${word ? `<br>${watchBtn(word)}` : ''}</div>`)
 }
 
 let sheetOpen = false
