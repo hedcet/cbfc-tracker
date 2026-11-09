@@ -45,7 +45,7 @@
     "watch": "sh -c 'trap \"kill 0\" exit; npm run build:client -- --watch=forever& npm run build:server -- --watch=forever& wait' --"
   },
   "type": "module",
-  "version": "3.1.4",
+  "version": "3.1.5",
   "volta": {
     "node": "26.13.0"
   }
