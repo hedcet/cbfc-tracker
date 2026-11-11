@@ -36,12 +36,12 @@ Made for [r/kerala_boxoffice](https://www.reddit.com/r/kerala_boxoffice/), but a
 
 ### Settings
 
-| Setting             | What it is for                                                                                    |
-| ------------------- | ------------------------------------------------------------------------------------------------- |
-| Title               | The title of the tracker post.                                                                    |
-| Source post ID      | The Reddit post the app reads new certificates from (optional). See below.                        |
+| Setting             | What it is for                                                                                   |
+| ------------------- | ------------------------------------------------------------------------------------------------ |
+| Title               | The title of the tracker post.                                                                   |
+| Source post ID      | The Reddit post the app reads new certificates from (optional). See below.                       |
 | Initial data (JSON) | A one-time import of older certificates. It is imported when you save; clear the box afterwards. |
-| Daily archive post  | Turn on the nightly 00:00 IST post. Off by default.                                               |
+| Daily archive post  | Turn on the nightly 00:00 IST post. Off by default.                                              |
 
 ### The source post
 
