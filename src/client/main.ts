@@ -178,7 +178,7 @@ function renderWatch(): void {
           signed
             ? `${num(list.filter(k => k.following).length)} following`
             : '',
-          isMod && hidden ? `${num(hidden)} not public` : '',
+          isMod && hidden ? `${num(hidden)} private` : '',
         ]
           .filter(Boolean)
           .join(' · ')
